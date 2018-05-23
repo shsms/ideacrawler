@@ -495,6 +495,23 @@ func (s *ideaCrawlerServer) RunJob(subId string, job *Job) {
 			if ccmd.noCallback == true {
 				return
 			}
+			if res.StatusCode > 399 && res.StatusCode < 600 {
+				job.log.Printf("STATUS - %s %s - %d : %s\n", ctx.Cmd.Method(), ctx.Cmd.URL(), res.StatusCode, res.Status)
+				if ccmd.URLDepth() == 0 {
+					phtml := pb.PageHTML{
+						Success:        false,
+						Error:          res.Status,
+						Sub:            &pb.Subscription{},
+						Url:            ctx.Cmd.URL().String(),
+						Httpstatuscode: int32(res.StatusCode),
+						Content:        []byte{},
+						MetaStr:        ccmd.MetaStr(),
+						UrlDepth:       ccmd.URLDepth(),
+					}
+					sendPageHTML(ctx, phtml)
+				}
+				return
+			}
 			pageBody, err := ioutil.ReadAll(res.Body)
 			if err != nil {
 				emsg := fmt.Sprintf("ERR - %s %s - %s", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
