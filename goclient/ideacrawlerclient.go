@@ -214,9 +214,9 @@ func (cj *CrawlJob) Run() {
 		cj.running = false
 	}()
 
-	if cj.usePageChan && cj.Callback != nil {
+	if cj.usePageChan == true && cj.Callback != nil {
 		log.Fatal("Callback channel and function both can't be used at the same time")
-	} else if cj.Callback == nil {
+	} else if cj.usePageChan == false && cj.Callback == nil {
 		log.Fatal("no callback function found")
 	}
 
