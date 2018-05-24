@@ -1049,7 +1049,9 @@ func (s *ideaCrawlerServer) RunJob(subId string, job *Job) {
 		}
 	}()
 	if len(job.opts.SeedUrl) > 0 {
+		job.mu.Lock()
 		job.duplicates[job.opts.SeedUrl] = true
+		job.mu.Unlock()
 		cmd, err := CreateCommand("GET", job.opts.SeedUrl, "", 0)
 		if err != nil {
 			job.log.Println(err)
@@ -1201,12 +1203,11 @@ func (job *Job) EnqueueLinks(ctx *fetchbot.Context, doc *goquery.Document, urlDe
 		if job.followUrlRegexp != nil && job.followUrlRegexp.MatchString(nurl) == false {
 			followMatch = false
 		}
-		job.log.Println("Enqueue Status", reqMatch, followMatch, nurl)
 		if !reqMatch && !followMatch {
 			return
 		}
 		if !job.duplicates[nurl] {
-			if !job.opts.FollowOtherDomains && u.Hostname() != job.domainname {
+			if job.opts.SeedUrl != "" && ( !job.opts.FollowOtherDomains && u.Hostname() != job.domainname) {
 				job.duplicates[nurl] = true
 				return
 			}
@@ -1215,6 +1216,7 @@ func (job *Job) EnqueueLinks(ctx *fetchbot.Context, doc *goquery.Document, urlDe
 				job.log.Println(err)
 				return
 			}
+			job.log.Printf("Enqueueing URL: %s", nurl)
 			if err := ctx.Q.Send(cmd); err != nil {
 				job.log.Println("error: enqueue head %s - %s", nurl, err)
 			} else {
