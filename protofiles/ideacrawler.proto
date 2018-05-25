@@ -133,6 +133,8 @@ message DomainOpt {
 
   // if prefetch flag is true, downloads resources like img, css, png, svg, js associated with the actual page to mimic browser behaviour.
   bool prefetch = 37;
+  
+  bool useAnchorText = 38;
 
 }
 
@@ -181,4 +183,5 @@ message PageHTML {
   bytes content = 6;
   string metaStr = 7;
   int32 urlDepth = 8;
+  string anchorText = 9;
 }

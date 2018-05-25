@@ -19,6 +19,7 @@
 package goclient
 
 import (
+	"errors"
 	"fmt"
 	google_protobuf1 "github.com/golang/protobuf/ptypes/duration"
 	google_protobuf "github.com/golang/protobuf/ptypes/timestamp"
@@ -28,7 +29,6 @@ import (
 	"io"
 	"log"
 	"time"
-	"errors"
 )
 
 type PageHTML = pb.PageHTML
@@ -65,6 +65,7 @@ type CrawlJob struct {
 	CancelOnDisconnect      bool
 	CheckContent            bool
 	Prefetch                bool
+	UseAnchorText           bool
 
 	dopt           *pb.DomainOpt
 	svrHost        string
@@ -74,10 +75,10 @@ type CrawlJob struct {
 	addPagesClient pb.IdeaCrawler_AddPagesClient
 	sub            *pb.Subscription
 
-	Callback	 func(*PageHTML, *CrawlJob)
-	usePageChan	 bool
-	PageChan	 <-chan *pb.PageHTML
-	implPageChan	 chan *pb.PageHTML
+	Callback     func(*PageHTML, *CrawlJob)
+	usePageChan  bool
+	PageChan     <-chan *pb.PageHTML
+	implPageChan chan *pb.PageHTML
 }
 
 func NewCrawlJob(svrHost, svrPort string) *CrawlJob {
@@ -143,9 +144,9 @@ func (cj *CrawlJob) SetCallbackXpathRegexp(mdata KVMap) {
 }
 
 func (cj *CrawlJob) SetPageChan(pageChan chan *pb.PageHTML) {
-	cj.usePageChan  = true
+	cj.usePageChan = true
 	cj.implPageChan = pageChan
-	cj.PageChan     = cj.implPageChan
+	cj.PageChan = cj.implPageChan
 }
 
 func (cj *CrawlJob) AddPage(url, metaStr string) error {
@@ -261,6 +262,7 @@ func (cj *CrawlJob) Run() {
 		CancelOnDisconnect:      cj.CancelOnDisconnect,
 		CheckContent:            cj.CheckContent,
 		Prefetch:                cj.Prefetch,
+		UseAnchorText:           cj.UseAnchorText,
 	}
 	pagestream, err := cj.client.AddDomainAndListen(context.Background(), cj.dopt, grpc.MaxCallRecvMsgSize((2*1024*1024*1024)-1))
 	if err != nil {
