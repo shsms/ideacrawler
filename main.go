@@ -147,6 +147,7 @@ type CrawlCommand struct {
 	noCallback bool
 	metaStr    string
 	urlDepth   int32
+	anchorText string
 }
 
 type IdeaCrawlDoer struct {
@@ -293,9 +294,9 @@ func (gc *IdeaCrawlDoer) Do(req *http.Request) (*http.Response, error) {
 func CreateCommand(method, urlstr, metaStr string, urlDepth int32) (CrawlCommand, error) {
 	parsed, err := url.Parse(urlstr)
 	return CrawlCommand{
-		method:  method,
-		url:     parsed,
-		metaStr: metaStr,
+		method:   method,
+		url:      parsed,
+		metaStr:  metaStr,
 		urlDepth: urlDepth,
 	}, err
 }
@@ -492,6 +493,7 @@ func (s *ideaCrawlerServer) RunJob(subId string, job *Job) {
 	mux.Response().Method("GET").ContentType("text/html").Handler(fetchbot.HandlerFunc(
 		func(ctx *fetchbot.Context, res *http.Response, err error) {
 			ccmd := ctx.Cmd.(CrawlCommand)
+			anchorText := ccmd.anchorText
 			if ccmd.noCallback == true {
 				return
 			}
@@ -523,7 +525,6 @@ func (s *ideaCrawlerServer) RunJob(subId string, job *Job) {
 					Url:            "",
 					Httpstatuscode: HTTPSTATUS_RESPONSE_ERROR,
 					Content:        []byte{},
-					MetaStr:        "",
 					UrlDepth:       ccmd.URLDepth(),
 				}
 				sendPageHTML(ctx, phtml)
@@ -547,7 +548,6 @@ func (s *ideaCrawlerServer) RunJob(subId string, job *Job) {
 						Url:            "",
 						Httpstatuscode: HTTPSTATUS_NOLONGER_LOGGED_IN,
 						Content:        []byte{},
-						MetaStr:        "",
 						UrlDepth:       ccmd.URLDepth(),
 					}
 					sendPageHTML(ctx, phtml)
@@ -577,13 +577,12 @@ func (s *ideaCrawlerServer) RunJob(subId string, job *Job) {
 						Url:            "",
 						Httpstatuscode: HTTPSTATUS_FOLLOW_PARSE_ERROR,
 						Content:        []byte{},
-						MetaStr:        "",
 						UrlDepth:       ccmd.URLDepth(),
 					}
 					sendPageHTML(ctx, phtml)
 					return
 				}
-				job.EnqueueLinks(ctx, doc, ccmd.URLDepth() + 1)
+				job.EnqueueLinks(ctx, doc, ccmd.URLDepth()+1)
 				job.log.Println("Enqueued", ctx.Cmd.URL().String())
 			}
 
@@ -597,6 +596,15 @@ func (s *ideaCrawlerServer) RunJob(subId string, job *Job) {
 				job.log.Printf("Url '%v' did not match callbackRegexp '%v'\n", ctx.Cmd.URL().String(), job.callbackUrlRegexp)
 			} else if job.callbackUrlRegexp != nil {
 				callbackPage = true
+			}
+
+			if job.opts.UseAnchorText == true && job.callbackUrlRegexp != nil {
+				if job.callbackUrlRegexp.MatchString(anchorText) == false {
+					job.log.Printf("Anchor Text '%v' did not match callbackRegexp '%v'\n", anchorText, job.callbackUrlRegexp)
+				} else {
+					callbackPage = true
+
+				}
 			}
 
 			if callbackPage == false && len(job.opts.CallbackXpathMatch) > 0 {
@@ -663,6 +671,7 @@ func (s *ideaCrawlerServer) RunJob(subId string, job *Job) {
 				Content:        pageBody,
 				MetaStr:        ccmd.MetaStr(),
 				UrlDepth:       ccmd.URLDepth(),
+				AnchorText:     anchorText,
 			}
 			sendPageHTML(ctx, phtml)
 		}))
@@ -671,7 +680,12 @@ func (s *ideaCrawlerServer) RunJob(subId string, job *Job) {
 	// to crawl links from other hosts.
 	mux.Response().Method("HEAD").ContentType("text/html").Handler(fetchbot.HandlerFunc(
 		func(ctx *fetchbot.Context, res *http.Response, err error) {
-			cmd := CrawlCommand{"GET", ctx.Cmd.URL(), false, ctx.Cmd.(CrawlCommand).MetaStr(), 0}
+			cmd := CrawlCommand{
+				method:     "GET",
+				url:        ctx.Cmd.URL(),
+				noCallback: false,
+				metaStr:    ctx.Cmd.(CrawlCommand).MetaStr(),
+			}
 			if err := ctx.Q.Send(cmd); err != nil {
 				job.log.Printf("ERR - %s %s - %s\n", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
 			}
@@ -805,7 +819,6 @@ func (s *ideaCrawlerServer) RunJob(subId string, job *Job) {
 					Url:            "",
 					Httpstatuscode: HTTPSTATUS_LOGIN_FAILED,
 					Content:        []byte{},
-					MetaStr:        "",
 				}
 				sendPageHTML(nil, phtml)
 				return
@@ -817,7 +830,6 @@ func (s *ideaCrawlerServer) RunJob(subId string, job *Job) {
 				Url:            "",
 				Httpstatuscode: HTTPSTATUS_LOGIN_SUCCESS,
 				Content:        []byte{},
-				MetaStr:        "",
 			}
 			sendPageHTML(nil, phtml)
 			job.log.Printf("Logged in. Found '%v' in '%v'\n", job.opts.LoginSuccessCheck.Value, job.opts.LoginSuccessCheck.Key)
@@ -897,7 +909,6 @@ func (s *ideaCrawlerServer) RunJob(subId string, job *Job) {
 					Url:            "",
 					Httpstatuscode: HTTPSTATUS_LOGIN_FAILED,
 					Content:        []byte{},
-					MetaStr:        "",
 				}
 				sendPageHTML(nil, phtml)
 				return
@@ -909,7 +920,6 @@ func (s *ideaCrawlerServer) RunJob(subId string, job *Job) {
 				Url:            "",
 				Httpstatuscode: HTTPSTATUS_LOGIN_SUCCESS,
 				Content:        []byte{},
-				MetaStr:        "",
 			}
 			sendPageHTML(nil, phtml)
 			job.log.Printf("Logged in. Found '%v' in '%v'\n", job.opts.LoginSuccessCheck.Value, job.opts.LoginSuccessCheck.Key)
@@ -1011,7 +1021,7 @@ func (s *ideaCrawlerServer) RunJob(subId string, job *Job) {
 						},
 						noCallback: pr.NoCallback,
 						metaStr:    pr.MetaStr,
-						urlDepth: 0,
+						urlDepth:   0,
 					}
 					err = q.Send(cmd)
 					if err != nil {
@@ -1034,7 +1044,7 @@ func (s *ideaCrawlerServer) RunJob(subId string, job *Job) {
 						},
 						noCallback: pr.NoCallback,
 						metaStr:    pr.MetaStr,
-						urlDepth: 0,
+						urlDepth:   0,
 					}
 					err = q.Send(cmd)
 					if err != nil {
@@ -1156,7 +1166,6 @@ func (s *ideaCrawlerServer) AddDomainAndListen(opts *pb.DomainOpt, ostream pb.Id
 		Url:            "",
 		Httpstatuscode: HTTPSTATUS_SUBSCRIPTION,
 		Content:        []byte{},
-		MetaStr:        "",
 	})
 	if err != nil {
 		log.Printf("Failed to send sub object to client. Cancelling job - %v. Error - %v\n", njs.sub.Subcode, err)
@@ -1184,6 +1193,8 @@ func (job *Job) EnqueueLinks(ctx *fetchbot.Context, doc *goquery.Document, urlDe
 	}
 	doc.Find("a[href]").Each(func(i int, s *goquery.Selection) {
 		val, _ := s.Attr("href")
+		anchorText := strings.TrimSpace(s.Text())
+
 		// Resolve address
 		u, err := ctx.Cmd.URL().Parse(val)
 		if err != nil {
@@ -1197,25 +1208,44 @@ func (job *Job) EnqueueLinks(ctx *fetchbot.Context, doc *goquery.Document, urlDe
 		nurl := purell.NormalizeURL(u, normFlags)
 		var reqMatch = true
 		var followMatch = true
+		var anchorMatch = true
 		if job.callbackUrlRegexp != nil && job.callbackUrlRegexp.MatchString(nurl) == false {
 			reqMatch = false
 		}
 		if job.followUrlRegexp != nil && job.followUrlRegexp.MatchString(nurl) == false {
 			followMatch = false
 		}
-		if !reqMatch && !followMatch {
+		if job.opts.UseAnchorText == false && job.callbackUrlRegexp.MatchString(anchorText) == false {
+			anchorMatch = false
+		}
+		if !reqMatch && !followMatch && !anchorMatch {
 			return
 		}
 		if !job.duplicates[nurl] {
-			if job.opts.SeedUrl != "" && ( !job.opts.FollowOtherDomains && u.Hostname() != job.domainname) {
+			if job.opts.SeedUrl != "" && (!job.opts.FollowOtherDomains && u.Hostname() != job.domainname) {
 				job.duplicates[nurl] = true
 				return
 			}
-			cmd, err := CreateCommand(SendMethod, nurl, "", urlDepth)
+
+			parsed_url, err := url.Parse(nurl)
 			if err != nil {
 				job.log.Println(err)
 				return
+
 			}
+
+			cmd := CrawlCommand{
+				method:     SendMethod,
+				url:        parsed_url,
+				metaStr:    ctx.Cmd.(CrawlCommand).MetaStr(),
+				urlDepth:   urlDepth,
+				anchorText: anchorText,
+			}
+			//cmd, err := CreateCommand(SendMethod, nurl, "", urlDepth)
+			//if err != nil {
+			//	job.log.Println(err)
+			//	return
+			//}
 			job.log.Printf("Enqueueing URL: %s", nurl)
 			if err := ctx.Q.Send(cmd); err != nil {
 				job.log.Println("error: enqueue head %s - %s", nurl, err)
