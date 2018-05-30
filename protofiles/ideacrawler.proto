@@ -27,6 +27,7 @@ service IdeaCrawler  {
   rpc AddDomainAndListen(DomainOpt) returns (stream PageHTML) {}
   rpc AddPages(stream PageRequest) returns (Status) {}
   rpc CancelJob(Subscription) returns (Status)  {}
+  rpc GetAnalyzedURLs(Subscription) returns (stream UrlList)  {}
 }
 
 message Status {
@@ -184,4 +185,10 @@ message PageHTML {
   string metaStr = 7;
   int32 urlDepth = 8;
   string anchorText = 9;
+}
+
+message UrlList {
+  repeated string url = 1;
+  string metaStr = 2;
+  int32 urlDepth = 3;
 }

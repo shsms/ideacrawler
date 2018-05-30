@@ -20,9 +20,9 @@ package main
 
 import (
 	"fmt"
-	"time"
-	"io/ioutil"
 	gc "github.com/ideas2it/ideacrawler/goclient"
+	"io/ioutil"
+	"time"
 )
 
 func main() {
@@ -32,44 +32,48 @@ func main() {
 	// Sends through channel. Default is callback through function.
 	z.SetPageChan(gc.NewPageChan())
 
-	z.SeedURL	= "http://books.toscrape.com/catalogue/page-1.html"
+	z.SeedURL = "http://books.toscrape.com/catalogue/page-1.html"
 
 	// Follow SeedURL with given FollowUrlRegexp. Also we could define CallbackUrlRegexp.
-	z.Follow		= true
-	z.Depth                 = 1
-	z.FollowUrlRegexp	= ".*books.*page-.*html"
-	z.CallbackUrlRegexp	= ".*books.*catalogue.*index.*html"
+	z.Follow = true
+	z.Depth = 1
+	z.FollowUrlRegexp = ".*books.*page-.*html"
+	z.CallbackUrlRegexp = ".*books.*catalogue.*index.*html"
 
-	z.Impolite		= true
-	z.CancelOnDisconnect	= true
-	
+	z.Impolite = true
+	z.CancelOnDisconnect = true
+
 	// Time delay between each page crawling. Time delay will be randomly generated between MinDelay and MaxDelay(in Seconds).
-	z.MinDelay	= 1
-	z.MaxDelay	= 5
+	z.MinDelay = 1
+	z.MaxDelay = 5
 
 	// Need to enable chrome or not.
-	z.Chrome	= true
-	z.ChromeBinary  = "/bin/chrome"
+	z.Chrome = true
+	z.ChromeBinary = "/bin/chrome"
 
 	z.Start()
-
+	z.SetAnalyzedURL(gc.NewAnalyzedURLChan())
 	go func() {
 		for {
-			ph := <-z.PageChan
-			fmt.Println(ph.Success, ph.Httpstatuscode, ph.Url, ph.MetaStr, ph.UrlDepth)
-			// fmt.Println(string(ph.Content))
-			err := ioutil.WriteFile("/tmp/out.file", ph.Content, 0775)
-			if err != nil {
-				fmt.Println("Write failed:",err, "for url:", ph.Url)
+			select {
+			case ph := <-z.PageChan:
+				fmt.Println(ph.Success, ph.Httpstatuscode, ph.Url, ph.MetaStr, ph.UrlDepth)
+				// fmt.Println(string(ph.Content))
+				err := ioutil.WriteFile("/tmp/out.file", ph.Content, 0775)
+				if err != nil {
+					fmt.Println("Write failed:", err, "for url:", ph.Url)
+				}
+			case urlList := <-z.AnalyzedURLChan:
+				fmt.Println("Domain: ", urlList.MetaStr, ", Total Url received: ", len(urlList.Url), ", Depth: ", urlList.UrlDepth)
 			}
 		}
 	}()
 
 	// z.AddPage("http://books.toscrape.com/")
-	
+
 	for {
 		if z.IsAlive() {
-			time.Sleep(1*time.Second)
+			time.Sleep(1 * time.Second)
 		} else {
 			break
 		}

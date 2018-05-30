@@ -76,11 +76,14 @@ var cliParams = struct {
 }{}
 
 type Subscriber struct {
-	doneSeqnum int32
-	reqChan    chan pb.PageRequest
-	sendChan   chan pb.PageHTML
-	stopChan   chan bool
-	connected  bool
+	doneSeqnum           int32
+	reqChan              chan pb.PageRequest
+	sendChan             chan pb.PageHTML
+	stopChan             chan bool
+	analyzedURLChan      chan pb.UrlList
+	stopAnalyzedURLChan  chan bool
+	analyzedURLConnected bool
+	connected            bool
 }
 
 type Job struct {
@@ -96,7 +99,7 @@ type Job struct {
 	seqnum            int32
 	callbackUrlRegexp *regexp.Regexp
 	followUrlRegexp   *regexp.Regexp
-	subscriber        Subscriber
+	subscriber        *Subscriber
 	mu                sync.Mutex
 	duplicates        map[string]bool
 	cancelChan        chan cancelSignal
@@ -124,7 +127,7 @@ type ideaCrawlerServer struct {
 
 type NewJobStatus struct {
 	sub                  pb.Subscription
-	subscriber           Subscriber
+	subscriber           *Subscriber
 	cancelChan           chan cancelSignal
 	registerDoneListener chan chan jobDoneSignal
 	err                  error
@@ -332,7 +335,7 @@ func (s *ideaCrawlerServer) JobManager(newJobChan <-chan NewJob, newSubChan <-ch
 			log.Println("Received new job", nj.opts.SeedUrl)
 			domainname, err := DomainNameFromURL(nj.opts.SeedUrl)
 			if err != nil {
-				nj.retChan <- NewJobStatus{pb.Subscription{}, Subscriber{}, nil, nil, err}
+				nj.retChan <- NewJobStatus{pb.Subscription{}, &Subscriber{}, nil, nil, err}
 				continue
 			}
 			emptyTS, _ := ptypes.TimestampProto(time.Time{})
@@ -340,25 +343,34 @@ func (s *ideaCrawlerServer) JobManager(newJobChan <-chan NewJob, newSubChan <-ch
 
 			freq, err := ptypes.Duration(nj.opts.Frequency)
 			if nj.opts.Repeat == true && err != nil {
-				nj.retChan <- NewJobStatus{pb.Subscription{}, Subscriber{}, nil, nil, errors.New("Bad value for DomainOpt.Frequency field - " + domainname + " - " + err.Error())}
+				nj.retChan <- NewJobStatus{pb.Subscription{}, &Subscriber{}, nil, nil, errors.New("Bad value for DomainOpt.Frequency field - " + domainname + " - " + err.Error())}
 				continue
 			}
-			subr := Subscriber{}
+			subr := &Subscriber{}
 			if nj.subscribe == true {
-				subr = Subscriber{0, make(chan pb.PageRequest, 1000), make(chan pb.PageHTML, 1000), make(chan bool, 3), true}
+				subr = &Subscriber{
+					doneSeqnum:           0,
+					reqChan:              make(chan pb.PageRequest, 1000),
+					sendChan:             make(chan pb.PageHTML, 1000),
+					stopChan:             make(chan bool, 3),
+					analyzedURLChan:      nil,
+					stopAnalyzedURLChan:  nil,
+					analyzedURLConnected: false,
+					connected:            true,
+				}
 			}
 			var callbackUrlRegexp, followUrlRegexp *regexp.Regexp
 			if len(nj.opts.CallbackUrlRegexp) > 0 {
 				callbackUrlRegexp, err = regexp.Compile(nj.opts.CallbackUrlRegexp)
 				if err != nil {
-					nj.retChan <- NewJobStatus{pb.Subscription{}, Subscriber{}, nil, nil, errors.New("CallbackUrlRegexp doesn't compile - '" + nj.opts.CallbackUrlRegexp + "' - " + err.Error())}
+					nj.retChan <- NewJobStatus{pb.Subscription{}, &Subscriber{}, nil, nil, errors.New("CallbackUrlRegexp doesn't compile - '" + nj.opts.CallbackUrlRegexp + "' - " + err.Error())}
 					continue
 				}
 			}
 			if len(nj.opts.FollowUrlRegexp) > 0 {
 				followUrlRegexp, err = regexp.Compile(nj.opts.FollowUrlRegexp)
 				if err != nil {
-					nj.retChan <- NewJobStatus{pb.Subscription{}, Subscriber{}, nil, nil, errors.New("FollowUrlRegexp doesn't compile - '" + nj.opts.FollowUrlRegexp + "' - " + err.Error())}
+					nj.retChan <- NewJobStatus{pb.Subscription{}, &Subscriber{}, nil, nil, errors.New("FollowUrlRegexp doesn't compile - '" + nj.opts.FollowUrlRegexp + "' - " + err.Error())}
 					continue
 				}
 			}
@@ -371,7 +383,7 @@ func (s *ideaCrawlerServer) JobManager(newJobChan <-chan NewJob, newSubChan <-ch
 		case ns := <-newSubChan:
 			job := s.jobs[ns.sub.Subcode]
 			if job == nil {
-				ns.retChan <- NewJobStatus{pb.Subscription{}, Subscriber{}, nil, nil, errors.New("Unable to find subcode - " + ns.sub.Subcode)}
+				ns.retChan <- NewJobStatus{pb.Subscription{}, &Subscriber{}, nil, nil, errors.New("Unable to find subcode - " + ns.sub.Subcode)}
 				continue
 			}
 			ns.retChan <- NewJobStatus{job.sub, job.subscriber, job.cancelChan, job.registerDoneListener, nil}
@@ -479,7 +491,7 @@ func (s *ideaCrawlerServer) RunJob(subId string, job *Job) {
 			Success:        false,
 			Error:          err.Error(),
 			Sub:            &pb.Subscription{},
-			Url:            res.Request.URL.String(),
+			Url:            ctx.Cmd.URL().String(),
 			Httpstatuscode: HTTPSTATUS_FETCHBOT_ERROR,
 			Content:        []byte{},
 			MetaStr:        ctx.Cmd.(CrawlCommand).MetaStr(),
@@ -522,7 +534,7 @@ func (s *ideaCrawlerServer) RunJob(subId string, job *Job) {
 					Success:        false,
 					Error:          emsg,
 					Sub:            &pb.Subscription{},
-					Url:            "",
+					Url:            ctx.Cmd.URL().String(),
 					Httpstatuscode: HTTPSTATUS_RESPONSE_ERROR,
 					Content:        []byte{},
 					UrlDepth:       ccmd.URLDepth(),
@@ -1147,6 +1159,38 @@ func (s *ideaCrawlerServer) CancelJob(ctx context.Context, sub *pb.Subscription)
 	return &pb.Status{true, ""}, nil
 }
 
+func (s *ideaCrawlerServer) GetAnalyzedURLs(sub *pb.Subscription, ostream pb.IdeaCrawler_GetAnalyzedURLsServer) error {
+	if sub == nil {
+		emsg := "Received nil subscription in GetAnalyzedURLs.  Not requesting analyzed urls."
+		log.Println(emsg)
+		return errors.New(emsg)
+	}
+	log.Println("Analyzed urls request received for job:", sub.Subcode)
+	retChan := make(chan NewJobStatus)
+	s.newSubChan <- NewSub{*sub, retChan}
+	njs := <-retChan
+	if njs.err != nil {
+		log.Println("ERR - Get analyzed urls request failed -", njs.err.Error())
+		return njs.err
+	}
+	analyzedURLChan := make(chan pb.UrlList, 100)
+	stopAnalyzedURLChan := make(chan bool, 3)
+
+	njs.subscriber.analyzedURLConnected = true
+	njs.subscriber.analyzedURLChan = analyzedURLChan
+	njs.subscriber.stopAnalyzedURLChan = stopAnalyzedURLChan
+	log.Println("Analyzed urls request registered")
+	for urlList := range njs.subscriber.analyzedURLChan {
+		err := ostream.Send(&urlList)
+		if err != nil {
+			log.Printf("Failed to send analyzed urls to client. No longer trying - %v. Error - %v\n", njs.sub.Subcode, err)
+			njs.subscriber.stopAnalyzedURLChan <- true
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *ideaCrawlerServer) AddDomainAndListen(opts *pb.DomainOpt, ostream pb.IdeaCrawler_AddDomainAndListenServer) error {
 	retChan := make(chan NewJobStatus)
 	s.newJobChan <- NewJob{opts, retChan, true}
@@ -1191,6 +1235,7 @@ func (job *Job) EnqueueLinks(ctx *fetchbot.Context, doc *goquery.Document, urlDe
 	if job.opts.CheckContent == true {
 		SendMethod = "HEAD"
 	}
+	var urlMap = make(map[string]bool)
 	doc.Find("a[href]").Each(func(i int, s *goquery.Selection) {
 		val, _ := s.Attr("href")
 		anchorText := strings.TrimSpace(s.Text())
@@ -1206,6 +1251,9 @@ func (job *Job) EnqueueLinks(ctx *fetchbot.Context, doc *goquery.Document, urlDe
 			normFlags = purell.FlagsSafe | purell.FlagRemoveFragment | purell.FlagRemoveDirectoryIndex
 		}
 		nurl := purell.NormalizeURL(u, normFlags)
+		if job.subscriber.analyzedURLConnected == true {
+			urlMap[nurl] = true
+		}
 		var reqMatch = true
 		var followMatch = true
 		var anchorMatch = true
@@ -1226,7 +1274,6 @@ func (job *Job) EnqueueLinks(ctx *fetchbot.Context, doc *goquery.Document, urlDe
 				job.duplicates[nurl] = true
 				return
 			}
-
 			parsed_url, err := url.Parse(nurl)
 			if err != nil {
 				job.log.Println(err)
@@ -1254,6 +1301,27 @@ func (job *Job) EnqueueLinks(ctx *fetchbot.Context, doc *goquery.Document, urlDe
 			}
 		}
 	})
+	job.log.Println("Status of analyzed url: ", job.subscriber.analyzedURLConnected)
+	if job.subscriber.analyzedURLConnected == true {
+		if job.subscriber.connected == false {
+			return
+		}
+
+		urlList := pb.UrlList{}
+		for url := range urlMap {
+			urlList.Url = append(urlList.Url, url)
+		}
+		urlList.MetaStr = ctx.Cmd.(CrawlCommand).MetaStr()
+		urlList.UrlDepth = urlDepth
+
+		select {
+		case <-job.subscriber.stopAnalyzedURLChan:
+			job.subscriber.analyzedURLConnected = false
+			return
+		case job.subscriber.analyzedURLChan <- urlList:
+			return
+		}
+	}
 }
 
 func newServer(newJobChan chan<- NewJob, newSubChan chan<- NewSub) *ideaCrawlerServer {
