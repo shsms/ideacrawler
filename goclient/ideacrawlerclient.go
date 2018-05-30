@@ -79,6 +79,9 @@ type CrawlJob struct {
 	usePageChan  bool
 	PageChan     <-chan *pb.PageHTML
 	implPageChan chan *pb.PageHTML
+
+	implAnalyzedURLChan chan *pb.UrlList
+	AnalyzedURLChan     <-chan *pb.UrlList
 }
 
 func NewCrawlJob(svrHost, svrPort string) *CrawlJob {
@@ -147,6 +150,36 @@ func (cj *CrawlJob) SetPageChan(pageChan chan *pb.PageHTML) {
 	cj.usePageChan = true
 	cj.implPageChan = pageChan
 	cj.PageChan = cj.implPageChan
+}
+
+func (cj *CrawlJob) SetAnalyzedURL(analyzedURLChan chan *pb.UrlList) {
+
+	if cj.sub == nil {
+		log.Println("No job subscription. SetAnalyzedURLs failed.")
+		return
+	}
+	urlstream, err := cj.client.GetAnalyzedURLs(context.Background(), cj.sub, grpc.MaxCallRecvMsgSize((2*1024*1024*1024)-1))
+	if err != nil {
+		log.Println("Box is possibly down. SetAnalyzedURLs failed:", err)
+		return
+	}
+	cj.implAnalyzedURLChan = analyzedURLChan
+	cj.AnalyzedURLChan = cj.implAnalyzedURLChan
+	go cj.listenAnalyzedURLs(urlstream)
+}
+
+func (cj *CrawlJob) listenAnalyzedURLs(urlstream pb.IdeaCrawler_GetAnalyzedURLsClient) {
+	for {
+		urlList, err := urlstream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			fmt.Println(err)
+			break
+		}
+		cj.implAnalyzedURLChan <- urlList
+	}
 }
 
 func (cj *CrawlJob) AddPage(url, metaStr string) error {
@@ -309,4 +342,8 @@ func (cj *CrawlJob) Run() {
 
 func NewPageChan() chan *pb.PageHTML {
 	return make(chan *pb.PageHTML, 100)
+}
+
+func NewAnalyzedURLChan() chan *pb.UrlList {
+	return make(chan *pb.UrlList, 100)
 }
