@@ -29,7 +29,7 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-// +build purego appengine js
+// +build appengine js
 
 // This file contains an implementation of proto field accesses using package reflect.
 // It is slower than the code in pointer_unsafe.go but it avoids package unsafe and can
@@ -56,9 +56,6 @@ func toField(f *reflect.StructField) field {
 
 // invalidField is an invalid field identifier.
 var invalidField = field(nil)
-
-// zeroField is a noop when calling pointer.offset.
-var zeroField = field([]int{})
 
 // IsValid reports whether the field identifier is valid.
 func (f field) IsValid() bool { return f != nil }

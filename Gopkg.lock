@@ -52,8 +52,7 @@
     "ptypes/duration",
     "ptypes/timestamp"
   ]
-  revision = "b4deda0973fb4c70b50d226b1af49f3da59f5265"
-  version = "v1.1.0"
+  revision = "ac606b176499"
 
 [[projects]]
   branch = "master"

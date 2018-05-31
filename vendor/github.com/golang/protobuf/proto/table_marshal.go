@@ -41,7 +41,6 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"unicode/utf8"
 )
 
 // a sizer takes a pointer to a field and the size of its tag, computes the size of
@@ -1984,9 +1983,6 @@ func appendBoolPackedSlice(b []byte, ptr pointer, wiretag uint64, _ bool) ([]byt
 }
 func appendStringValue(b []byte, ptr pointer, wiretag uint64, _ bool) ([]byte, error) {
 	v := *ptr.toString()
-	if !utf8.ValidString(v) {
-		return nil, errInvalidUTF8
-	}
 	b = appendVarint(b, wiretag)
 	b = appendVarint(b, uint64(len(v)))
 	b = append(b, v...)
@@ -1996,9 +1992,6 @@ func appendStringValueNoZero(b []byte, ptr pointer, wiretag uint64, _ bool) ([]b
 	v := *ptr.toString()
 	if v == "" {
 		return b, nil
-	}
-	if !utf8.ValidString(v) {
-		return nil, errInvalidUTF8
 	}
 	b = appendVarint(b, wiretag)
 	b = appendVarint(b, uint64(len(v)))
@@ -2011,9 +2004,6 @@ func appendStringPtr(b []byte, ptr pointer, wiretag uint64, _ bool) ([]byte, err
 		return b, nil
 	}
 	v := *p
-	if !utf8.ValidString(v) {
-		return nil, errInvalidUTF8
-	}
 	b = appendVarint(b, wiretag)
 	b = appendVarint(b, uint64(len(v)))
 	b = append(b, v...)
@@ -2022,9 +2012,6 @@ func appendStringPtr(b []byte, ptr pointer, wiretag uint64, _ bool) ([]byte, err
 func appendStringSlice(b []byte, ptr pointer, wiretag uint64, _ bool) ([]byte, error) {
 	s := *ptr.toStringSlice()
 	for _, v := range s {
-		if !utf8.ValidString(v) {
-			return nil, errInvalidUTF8
-		}
 		b = appendVarint(b, wiretag)
 		b = appendVarint(b, uint64(len(v)))
 		b = append(b, v...)
@@ -2579,15 +2566,9 @@ func (u *marshalInfo) appendV1Extensions(b []byte, m map[int32]Extension, determ
 	return b, nil
 }
 
-// newMarshaler is the interface representing objects that can marshal themselves.
-//
-// This exists to support protoc-gen-go generated messages.
-// The proto package will stop type-asserting to this interface in the future.
-//
-// DO NOT DEPEND ON THIS.
 type newMarshaler interface {
 	XXX_Size() int
-	XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
+	Marshal(b []byte, deterministic bool) ([]byte, error)
 }
 
 // Size returns the encoded size of a protocol buffer message.
@@ -2617,7 +2598,7 @@ func Marshal(pb Message) ([]byte, error) {
 	if m, ok := pb.(newMarshaler); ok {
 		siz := m.XXX_Size()
 		b := make([]byte, 0, siz)
-		return m.XXX_Marshal(b, false)
+		return m.Marshal(b, false)
 	}
 	if m, ok := pb.(Marshaler); ok {
 		// If the message can marshal itself, let it do it, for compatibility.
@@ -2643,8 +2624,11 @@ func (p *Buffer) Marshal(pb Message) error {
 	var err error
 	if m, ok := pb.(newMarshaler); ok {
 		siz := m.XXX_Size()
-		p.grow(siz) // make sure buf has enough capacity
-		p.buf, err = m.XXX_Marshal(p.buf, p.deterministic)
+		// make sure buf has enough capacity
+		if newCap := len(p.buf) + siz; newCap > cap(p.buf) {
+			p.buf = append(make([]byte, 0, newCap), p.buf...)
+		}
+		p.buf, err = m.Marshal(p.buf, p.deterministic)
 		return err
 	}
 	if m, ok := pb.(Marshaler); ok {
@@ -2660,22 +2644,10 @@ func (p *Buffer) Marshal(pb Message) error {
 	}
 	var info InternalMessageInfo
 	siz := info.Size(pb)
-	p.grow(siz) // make sure buf has enough capacity
+	// make sure buf has enough capacity
+	if newCap := len(p.buf) + siz; newCap > cap(p.buf) {
+		p.buf = append(make([]byte, 0, newCap), p.buf...)
+	}
 	p.buf, err = info.Marshal(p.buf, pb, p.deterministic)
 	return err
-}
-
-// grow grows the buffer's capacity, if necessary, to guarantee space for
-// another n bytes. After grow(n), at least n bytes can be written to the
-// buffer without another allocation.
-func (p *Buffer) grow(n int) {
-	need := len(p.buf) + n
-	if need <= cap(p.buf) {
-		return
-	}
-	newCap := len(p.buf) * 2
-	if newCap < need {
-		newCap = need
-	}
-	p.buf = append(make([]byte, 0, newCap), p.buf...)
 }
