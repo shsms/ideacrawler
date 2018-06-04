@@ -65,7 +65,7 @@ type CrawlJob struct {
 	CancelOnDisconnect      bool
 	CheckContent            bool
 	Prefetch                bool
-	UseAnchorText           bool
+	AnchorTextRegexp        string
 	CleanUpFunc             func()
 
 	dopt           *pb.DomainOpt
@@ -303,7 +303,7 @@ func (cj *CrawlJob) Run() {
 		CancelOnDisconnect:      cj.CancelOnDisconnect,
 		CheckContent:            cj.CheckContent,
 		Prefetch:                cj.Prefetch,
-		UseAnchorText:           cj.UseAnchorText,
+		AnchorTextRegexp:        cj.AnchorTextRegexp,
 	}
 	pagestream, err := cj.client.AddDomainAndListen(context.Background(), cj.dopt, grpc.MaxCallRecvMsgSize((2*1024*1024*1024)-1))
 	if err != nil {
