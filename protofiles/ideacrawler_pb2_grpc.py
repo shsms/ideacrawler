@@ -47,6 +47,11 @@ class IdeaCrawlerStub(object):
         request_serializer=ideacrawler__pb2.Subscription.SerializeToString,
         response_deserializer=ideacrawler__pb2.Status.FromString,
         )
+    self.GetAnalyzedURLs = channel.unary_stream(
+        '/protofiles.IdeaCrawler/GetAnalyzedURLs',
+        request_serializer=ideacrawler__pb2.Subscription.SerializeToString,
+        response_deserializer=ideacrawler__pb2.UrlList.FromString,
+        )
 
 
 class IdeaCrawlerServicer(object):
@@ -74,6 +79,13 @@ class IdeaCrawlerServicer(object):
     context.set_details('Method not implemented!')
     raise NotImplementedError('Method not implemented!')
 
+  def GetAnalyzedURLs(self, request, context):
+    # missing associated documentation comment in .proto file
+    pass
+    context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+    context.set_details('Method not implemented!')
+    raise NotImplementedError('Method not implemented!')
+
 
 def add_IdeaCrawlerServicer_to_server(servicer, server):
   rpc_method_handlers = {
@@ -91,6 +103,11 @@ def add_IdeaCrawlerServicer_to_server(servicer, server):
           servicer.CancelJob,
           request_deserializer=ideacrawler__pb2.Subscription.FromString,
           response_serializer=ideacrawler__pb2.Status.SerializeToString,
+      ),
+      'GetAnalyzedURLs': grpc.unary_stream_rpc_method_handler(
+          servicer.GetAnalyzedURLs,
+          request_deserializer=ideacrawler__pb2.Subscription.FromString,
+          response_serializer=ideacrawler__pb2.UrlList.SerializeToString,
       ),
   }
   generic_handler = grpc.method_handlers_generic_handler(
