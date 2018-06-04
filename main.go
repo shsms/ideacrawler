@@ -100,6 +100,7 @@ type Job struct {
 	seqnum            int32
 	callbackUrlRegexp *regexp.Regexp
 	followUrlRegexp   *regexp.Regexp
+	anchorTextRegexp  *regexp.Regexp
 	subscriber        *Subscriber
 	mu                sync.Mutex
 	duplicates        map[string]bool
@@ -360,7 +361,7 @@ func (s *ideaCrawlerServer) JobManager(newJobChan <-chan NewJob, newSubChan <-ch
 					connected:            true,
 				}
 			}
-			var callbackUrlRegexp, followUrlRegexp *regexp.Regexp
+			var callbackUrlRegexp, followUrlRegexp, anchorTextRegexp *regexp.Regexp
 			if len(nj.opts.CallbackUrlRegexp) > 0 {
 				callbackUrlRegexp, err = regexp.Compile(nj.opts.CallbackUrlRegexp)
 				if err != nil {
@@ -375,10 +376,17 @@ func (s *ideaCrawlerServer) JobManager(newJobChan <-chan NewJob, newSubChan <-ch
 					continue
 				}
 			}
+			if len(nj.opts.AnchorTextRegexp) > 0 {
+				anchorTextRegexp, err = regexp.Compile(nj.opts.AnchorTextRegexp)
+				if err != nil {
+					nj.retChan <- NewJobStatus{pb.Subscription{}, &Subscriber{}, nil, nil, errors.New("AnchorTextRegexp doesn't compile - '" + nj.opts.AnchorTextRegexp + "' - " + err.Error())}
+					continue
+				}
+			}
 			canc := make(chan cancelSignal)
 			regDoneC := make(chan chan jobDoneSignal)
 			randChan := make(chan int, 5)
-			s.jobs[sub.Subcode] = &Job{domainname, nj.opts, sub, time.Time{}, time.Time{}, freq, 0, false, false, 0, callbackUrlRegexp, followUrlRegexp, subr, sync.Mutex{}, map[string]bool{}, canc, []chan jobDoneSignal{}, regDoneC, make(chan jobDoneSignal), randChan, nil}
+			s.jobs[sub.Subcode] = &Job{domainname, nj.opts, sub, time.Time{}, time.Time{}, freq, 0, false, false, 0, callbackUrlRegexp, followUrlRegexp, anchorTextRegexp, subr, sync.Mutex{}, map[string]bool{}, canc, []chan jobDoneSignal{}, regDoneC, make(chan jobDoneSignal), randChan, nil}
 			go randomGenerator(int(nj.opts.MinDelay), int(nj.opts.MaxDelay), randChan)
 			nj.retChan <- NewJobStatus{sub, subr, canc, regDoneC, nil}
 		case ns := <-newSubChan:
@@ -615,13 +623,10 @@ func (s *ideaCrawlerServer) RunJob(subId string, job *Job) {
 				callbackPage = true
 			}
 
-			if job.opts.UseAnchorText == true && job.callbackUrlRegexp != nil {
-				if job.callbackUrlRegexp.MatchString(anchorText) == false {
-					job.log.Printf("Anchor Text '%v' did not match callbackRegexp '%v'\n", anchorText, job.callbackUrlRegexp)
-				} else {
-					callbackPage = true
-
-				}
+			if job.anchorTextRegexp != nil && job.anchorTextRegexp.MatchString(anchorText) == false {
+				job.log.Printf("Anchor Text '%v' did not match anchorTextRegexp '%v'\n", anchorText, job.anchorTextRegexp)
+			} else if job.anchorTextRegexp != nil {
+				callbackPage = true
 			}
 
 			if callbackPage == false && len(job.opts.CallbackXpathMatch) > 0 {
@@ -1268,7 +1273,7 @@ func (job *Job) EnqueueLinks(ctx *fetchbot.Context, doc *goquery.Document, urlDe
 		if job.followUrlRegexp != nil && job.followUrlRegexp.MatchString(nurl) == false {
 			followMatch = false
 		}
-		if job.opts.UseAnchorText == false && job.callbackUrlRegexp.MatchString(anchorText) == false {
+		if job.anchorTextRegexp != nil && job.anchorTextRegexp.MatchString(anchorText) == false {
 			anchorMatch = false
 		}
 		if !reqMatch && !followMatch && !anchorMatch {

@@ -135,7 +135,8 @@ message DomainOpt {
   // if prefetch flag is true, downloads resources like img, css, png, svg, js associated with the actual page to mimic browser behaviour.
   bool prefetch = 37;
   
-  bool useAnchorText = 38;
+  // pages matching anchor text regexp will be shipped back to the client.
+  string anchorTextRegexp = 39;
 
 }
 
