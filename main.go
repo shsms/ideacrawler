@@ -738,9 +738,12 @@ func (s *ideaCrawlerServer) RunJob(subId string, job *Job) {
 	if job.opts.Chrome == false && job.opts.Login == false {
 		gCurCookieJar, _ := cookiejar.New(nil)
 		httpClient := &http.Client{
-			Transport:     &httpcache.Transport{networkTransport, diskcache.New("/tmp/ideacache/" + job.sub.Subcode), true},
+			Transport:     networkTransport,
 			CheckRedirect: nil,
 			Jar:           gCurCookieJar,
+		}
+		if job.opts.Prefetch == true {
+			httpClient.Transport = &httpcache.Transport{networkTransport, diskcache.New("/tmp/ideacache/" + job.sub.Subcode), true}
 		}
 		f.HttpClient = &IdeaCrawlDoer{httpClient, job, semaphore.NewWeighted(int64(job.opts.MaxConcurrentRequests)), s}
 	}
@@ -751,9 +754,12 @@ func (s *ideaCrawlerServer) RunJob(subId string, job *Job) {
 		// then give that client to fetchbot's fetcher.
 		gCurCookieJar, _ := cookiejar.New(nil)
 		httpClient := &http.Client{
-			Transport:     &httpcache.Transport{networkTransport, diskcache.New("/tmp/ideacache/" + job.sub.Subcode), true},
+			Transport:     networkTransport,
 			CheckRedirect: nil,
 			Jar:           gCurCookieJar,
+		}
+		if job.opts.Prefetch == true {
+			httpClient.Transport = &httpcache.Transport{networkTransport, diskcache.New("/tmp/ideacache/" + job.sub.Subcode), true}
 		}
 		var payload = make(url.Values)
 		if job.opts.LoginParseFields == true {
