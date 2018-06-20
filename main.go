@@ -613,6 +613,11 @@ func (s *ideaCrawlerServer) RunJob(subId string, job *Job) {
 
 			var callbackPage = false
 
+			// Callback if depth = 0
+			if job.opts.CallbackSeedUrl == true && ccmd.URLDepth() == 0 {
+				callbackPage = true
+			}
+
 			if len(job.opts.CallbackUrlRegexp) == 0 && len(job.opts.CallbackXpathMatch) == 0 && len(job.opts.CallbackXpathRegexp) == 0 {
 				callbackPage = true
 			}

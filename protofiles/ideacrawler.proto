@@ -138,6 +138,8 @@ message DomainOpt {
   // pages matching anchor text regexp will be shipped back to the client.
   string anchorTextRegexp = 39;
 
+  // If true ships the page at depth 0, else only pattern matched urls are shipped
+  bool callbackSeedUrl = 40;
 }
 
 //Subscription type

@@ -83,6 +83,7 @@ type CrawlJob struct {
 
 	implAnalyzedURLChan chan *pb.UrlList
 	AnalyzedURLChan     <-chan *pb.UrlList
+	CallbackSeedUrl     bool
 }
 
 func NewCrawlJob(svrHost, svrPort string) *CrawlJob {
@@ -304,6 +305,7 @@ func (cj *CrawlJob) Run() {
 		CheckContent:            cj.CheckContent,
 		Prefetch:                cj.Prefetch,
 		AnchorTextRegexp:        cj.AnchorTextRegexp,
+		CallbackSeedUrl:       	 cj.CallbackSeedUrl,
 	}
 	pagestream, err := cj.client.AddDomainAndListen(context.Background(), cj.dopt, grpc.MaxCallRecvMsgSize((2*1024*1024*1024)-1))
 	if err != nil {
