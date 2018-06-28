@@ -1270,6 +1270,8 @@ func (job *Job) EnqueueLinks(ctx *fetchbot.Context, doc *goquery.Document, urlDe
 		normFlags := purell.FlagsSafe
 		if job.opts.UnsafeNormalizeURL == true {
 			normFlags = purell.FlagsSafe | purell.FlagRemoveFragment | purell.FlagRemoveDirectoryIndex
+			// Remove query params
+			u.RawQuery = ""
 		}
 		nurl := purell.NormalizeURL(u, normFlags)
 		if job.subscriber.analyzedURLConnected == true {
