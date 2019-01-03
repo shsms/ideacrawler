@@ -21,14 +21,15 @@ package goclient
 import (
 	"errors"
 	"fmt"
+	"io"
+	"log"
+	"time"
+
 	google_protobuf1 "github.com/golang/protobuf/ptypes/duration"
 	google_protobuf "github.com/golang/protobuf/ptypes/timestamp"
 	pb "github.com/ideas2it/ideacrawler/protofiles"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	"io"
-	"log"
-	"time"
 )
 
 type PageHTML = pb.PageHTML
@@ -305,7 +306,7 @@ func (cj *CrawlJob) Run() {
 		CheckContent:            cj.CheckContent,
 		Prefetch:                cj.Prefetch,
 		AnchorTextRegexp:        cj.AnchorTextRegexp,
-		CallbackSeedUrl:       	 cj.CallbackSeedUrl,
+		CallbackSeedUrl:         cj.CallbackSeedUrl,
 	}
 	pagestream, err := cj.client.AddDomainAndListen(context.Background(), cj.dopt, grpc.MaxCallRecvMsgSize((2*1024*1024*1024)-1))
 	if err != nil {

@@ -22,22 +22,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/PuerkitoBio/fetchbot"
-	"github.com/PuerkitoBio/goquery"
-	"github.com/PuerkitoBio/purell"
-	"github.com/antchfx/xpath"
-	"github.com/antchfx/xquery/html"
-	"github.com/golang/protobuf/ptypes"
-	"github.com/google/uuid"
-	"github.com/gregjones/httpcache"
-	"github.com/gregjones/httpcache/diskcache"
-	"github.com/ideas2it/ideacrawler/chromeclient"
-	"github.com/ideas2it/ideacrawler/prefetchurl"
-	pb "github.com/ideas2it/ideacrawler/protofiles"
-	"github.com/shsms-i2i/sflag"
-	"golang.org/x/net/context"
-	"golang.org/x/sync/semaphore"
-	"google.golang.org/grpc"
 	"io"
 	"io/ioutil"
 	"log"
@@ -53,18 +37,23 @@ import (
 	"strings"
 	"sync"
 	"time"
-)
 
-// CUSTOM httpStatusCodes
-
-const (
-	HTTPSTATUS_LOGIN_SUCCESS      = 1500
-	HTTPSTATUS_LOGIN_FAILED       = 1501
-	HTTPSTATUS_NOLONGER_LOGGED_IN = 1502
-	HTTPSTATUS_FETCHBOT_ERROR     = 1520
-	HTTPSTATUS_RESPONSE_ERROR     = 1530
-	HTTPSTATUS_SUBSCRIPTION       = 1540
-	HTTPSTATUS_FOLLOW_PARSE_ERROR = 1550
+	"github.com/PuerkitoBio/fetchbot"
+	"github.com/PuerkitoBio/goquery"
+	"github.com/PuerkitoBio/purell"
+	"github.com/antchfx/xpath"
+	htmlquery "github.com/antchfx/xquery/html"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/google/uuid"
+	"github.com/gregjones/httpcache"
+	"github.com/gregjones/httpcache/diskcache"
+	"github.com/ideas2it/ideacrawler/chromeclient"
+	pb "github.com/ideas2it/ideacrawler/protofiles"
+	sc "github.com/ideas2it/ideacrawler/statuscodes"
+	"github.com/shsms-i2i/sflag"
+	"golang.org/x/net/context"
+	"golang.org/x/sync/semaphore"
+	"google.golang.org/grpc"
 )
 
 // TODO - implement the DEBUG feature
@@ -76,7 +65,7 @@ var cliParams = struct {
 	LogPath        string "Logpath to log into. Default is stdout."
 }{}
 
-type Subscriber struct {
+type subscriber struct {
 	doneSeqnum           int32
 	reqChan              chan pb.PageRequest
 	sendChan             chan pb.PageHTML
@@ -87,7 +76,7 @@ type Subscriber struct {
 	connected            bool
 }
 
-type Job struct {
+type job struct {
 	domainname        string
 	opts              *pb.DomainOpt
 	sub               pb.Subscription
@@ -98,10 +87,10 @@ type Job struct {
 	running           bool
 	done              bool
 	seqnum            int32
-	callbackUrlRegexp *regexp.Regexp
-	followUrlRegexp   *regexp.Regexp
+	callbackURLRegexp *regexp.Regexp
+	followURLRegexp   *regexp.Regexp
 	anchorTextRegexp  *regexp.Regexp
-	subscriber        *Subscriber
+	subscriber        *subscriber
 	mu                sync.Mutex
 	duplicates        map[string]bool
 	cancelChan        chan cancelSignal
@@ -122,28 +111,28 @@ type cancelSignal struct{}
 type jobDoneSignal struct{}
 
 type ideaCrawlerServer struct {
-	jobs       map[string]*Job
-	newJobChan chan<- NewJob
-	newSubChan chan<- NewSub
+	jobs       map[string]*job
+	newJobChan chan<- newJob
+	newSubChan chan<- newSub
 }
 
-type NewJobStatus struct {
+type newJobStatus struct {
 	sub                  pb.Subscription
-	subscriber           *Subscriber
+	subscriber           *subscriber
 	cancelChan           chan cancelSignal
 	registerDoneListener chan chan jobDoneSignal
 	err                  error
 }
 
-type NewJob struct {
+type newJob struct {
 	opts      *pb.DomainOpt
-	retChan   chan<- NewJobStatus
+	retChan   chan<- newJobStatus
 	subscribe bool
 }
 
-type NewSub struct {
+type newSub struct {
 	sub     pb.Subscription
-	retChan chan<- NewJobStatus
+	retChan chan<- newJobStatus
 }
 
 type CrawlCommand struct {
@@ -155,148 +144,7 @@ type CrawlCommand struct {
 	anchorText string
 }
 
-type IdeaCrawlDoer struct {
-	doer fetchbot.Doer
-	job  *Job
-	sema *semaphore.Weighted
-	s    *ideaCrawlerServer
-}
-
-func randomGenerator(min int, max int, randChan chan<- int) {
-	ii := 0
-	jj := 5
-	genRand := func(min int, max int) int {
-		v := 0
-		for v < min {
-			v = int((rand.NormFloat64()+1.0)*float64(max-min)/2.0 + float64(min))
-		}
-		return v
-	}
-	for ; ; ii++ {
-		if ii >= jj {
-			jj = genRand(5, 20)
-			ii = 0
-			randChan <- genRand(max, max*3)
-			continue
-		}
-		randChan <- genRand(min, max)
-	}
-}
-
-func execPrefetchReq(gc *IdeaCrawlDoer, prefetchReq *http.Request) {
-	res, _ := gc.doer.Do(prefetchReq)
-	io.Copy(ioutil.Discard, res.Body)
-	res.Body.Close()
-}
-
-func processPrefetchCSSURL(gc *IdeaCrawlDoer, prefetchCSSReq *http.Request, prefetchCSSURL string) error {
-	var err error
-	prefetchCSSRes, err := gc.doer.Do(prefetchCSSReq)
-	if err != nil {
-		log.Printf("ERR - Unable to process prefetch css resource url. Error - %v\n", err)
-		return err
-	}
-	prefetchCSSResBody, err := ioutil.ReadAll(prefetchCSSRes.Body)
-	if err != nil {
-		log.Printf("ERR - Unable to read css url response content. Error - %v\n", err)
-		return err
-	}
-	prefetchLinks, err := prefetchurl.GetPrefetchURLs(prefetchCSSResBody, prefetchCSSURL)
-	if err != nil {
-		log.Printf("ERR - While trying to retreive resources urls. Error - %v\n", err)
-		return err
-	}
-	for _, prefetchLink := range prefetchLinks {
-		prefetchLinkReq, err := http.NewRequest("GET", prefetchLink, nil)
-		if err != nil {
-			log.Printf("ERR - Unable to create new request for prefetch urls. Error - %v\n", err)
-			return err
-		}
-		prefetchLinkReq.Header.Set("User-Agent", gc.job.opts.Useragent)
-		go execPrefetchReq(gc, prefetchLinkReq)
-	}
-	return err
-}
-
-func processPrefetchURLs(gc *IdeaCrawlDoer, respBody []byte, reqURL string) error {
-	var err error
-	prefetchLinks, err := prefetchurl.GetPrefetchURLs(respBody, reqURL)
-	if err != nil {
-		log.Printf("ERR - While trying to retreive resources urls. Error - %v\n", err)
-		return err
-	}
-	for _, prefetchLink := range prefetchLinks {
-		prefetchLinkReq, err := http.NewRequest("GET", prefetchLink, nil)
-		if err != nil {
-			log.Printf("ERR - Unable to create new request for prefetch urls. Error - %v\n", err)
-			return err
-		}
-		prefetchLinkReq.Header.Set("User-Agent", gc.job.opts.Useragent)
-		if strings.HasSuffix(prefetchLink, ".css") {
-			go processPrefetchCSSURL(gc, prefetchLinkReq, prefetchLink)
-		} else {
-			go execPrefetchReq(gc, prefetchLinkReq)
-		}
-	}
-	return err
-}
-
-func (gc *IdeaCrawlDoer) Do(req *http.Request) (*http.Response, error) {
-	opts := gc.job.opts
-	if gc.sema == nil {
-		gc.sema = semaphore.NewWeighted(int64(opts.MaxConcurrentRequests))
-	}
-	gc.sema.Acquire(context.Background(), 1)
-	defer gc.sema.Release(1)
-	if opts.NetworkIface != "" {
-		ifs, err := net.Interfaces()
-		if err != nil {
-			gc.job.log.Printf("ERR - Unable to get list of network interfaces. Error - %v\n", err)
-			return nil, err
-		}
-		ifmatch := false
-		for _, iface := range ifs {
-			if iface.Name == opts.NetworkIface {
-				ifmatch = true
-				break
-			}
-		}
-		if ifmatch == false {
-			emsg := "Interface '" + opts.NetworkIface + "' not active."
-			gc.job.cancelChan <- cancelSignal{}
-			gc.job.log.Printf("ERR - %v\n", emsg)
-			return nil, errors.New(emsg)
-		}
-	}
-	// randomized delay
-	afterTime := opts.MinDelay
-	if afterTime < 5 {
-		afterTime = 5
-	}
-	if opts.MaxDelay > afterTime {
-		afterTime = int32(<-gc.job.randChan)
-		gc.job.log.Printf("Next delay - %v\n", time.Duration(afterTime)*time.Second)
-	}
-	after := time.After(time.Duration(afterTime) * time.Second)
-	resp, err := gc.doer.Do(req)
-	// process prefetch urls
-	if opts.Chrome == false && opts.Prefetch == true {
-		respBody, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			log.Printf("ERR - Unable to read url response content. Error - %v\n", err)
-			return nil, err
-		}
-		err = processPrefetchURLs(gc, respBody, resp.Request.URL.String())
-		if err != nil {
-			return nil, err
-		}
-		resp.Body = ioutil.NopCloser(bytes.NewBuffer(respBody))
-	}
-	<-after
-	return resp, err
-}
-
-func CreateCommand(method, urlstr, metaStr string, urlDepth int32) (CrawlCommand, error) {
+func newCrawlCommand(method, urlstr, metaStr string, urlDepth int32) (CrawlCommand, error) {
 	parsed, err := url.Parse(urlstr)
 	return CrawlCommand{
 		method:   method,
@@ -322,7 +170,7 @@ func (c CrawlCommand) URLDepth() int32 {
 	return c.urlDepth
 }
 
-func DomainNameFromURL(_url string) (string, error) { //returns domain name and error if any
+func domainNameFromURL(_url string) (string, error) { //returns domain name and error if any
 	u, err := url.Parse(_url)
 	if err != nil {
 		return "", err
@@ -330,72 +178,153 @@ func DomainNameFromURL(_url string) (string, error) { //returns domain name and 
 	return u.Hostname(), nil
 }
 
-func (s *ideaCrawlerServer) JobManager(newJobChan <-chan NewJob, newSubChan <-chan NewSub) {
+func (s *ideaCrawlerServer) addNewJob(nj newJob) {
+	log.Println("Received new job", nj.opts.SeedUrl)
+	domainname, err := domainNameFromURL(nj.opts.SeedUrl)
+	if err != nil {
+		nj.retChan <- newJobStatus{
+			sub:                  pb.Subscription{},
+			subscriber:           &subscriber{},
+			cancelChan:           nil,
+			registerDoneListener: nil,
+			err:                  err,
+		}
+		return
+	}
+	emptyTS, _ := ptypes.TimestampProto(time.Time{})
+	sub := pb.Subscription{
+		Subcode:    uuid.New().String(),
+		Domainname: domainname,
+		Subtype:    pb.SubType_SEQNUM,
+		Seqnum:     0,
+		Datetime:   emptyTS,
+	}
+
+	freq, err := ptypes.Duration(nj.opts.Frequency)
+	if nj.opts.Repeat == true && err != nil {
+		nj.retChan <- newJobStatus{
+			sub:                  pb.Subscription{},
+			subscriber:           &subscriber{},
+			cancelChan:           nil,
+			registerDoneListener: nil,
+			err:                  errors.New("Bad value for DomainOpt.Frequency field - " + domainname + " - " + err.Error()),
+		}
+		return
+	}
+	subr := &subscriber{}
+	if nj.subscribe == true {
+		subr = &subscriber{
+			doneSeqnum:           0,
+			reqChan:              make(chan pb.PageRequest, 1000),
+			sendChan:             make(chan pb.PageHTML, 1000),
+			stopChan:             make(chan bool, 3),
+			analyzedURLChan:      nil,
+			stopAnalyzedURLChan:  nil,
+			analyzedURLConnected: false,
+			connected:            true,
+		}
+	}
+	var callbackURLRegexp, followURLRegexp, anchorTextRegexp *regexp.Regexp
+	if len(nj.opts.CallbackUrlRegexp) > 0 {
+		callbackURLRegexp, err = regexp.Compile(nj.opts.CallbackUrlRegexp)
+		if err != nil {
+			nj.retChan <- newJobStatus{
+				sub:                  pb.Subscription{},
+				subscriber:           &subscriber{},
+				cancelChan:           nil,
+				registerDoneListener: nil,
+				err:                  errors.New("CallbackUrlRegexp doesn't compile - '" + nj.opts.CallbackUrlRegexp + "' - " + err.Error()),
+			}
+			return
+		}
+	}
+	if len(nj.opts.FollowUrlRegexp) > 0 {
+		followURLRegexp, err = regexp.Compile(nj.opts.FollowUrlRegexp)
+		if err != nil {
+			nj.retChan <- newJobStatus{
+				sub:                  pb.Subscription{},
+				subscriber:           &subscriber{},
+				cancelChan:           nil,
+				registerDoneListener: nil,
+				err:                  errors.New("FollowUrlRegexp doesn't compile - '" + nj.opts.FollowUrlRegexp + "' - " + err.Error()),
+			}
+			return
+		}
+	}
+	if len(nj.opts.AnchorTextRegexp) > 0 {
+		anchorTextRegexp, err = regexp.Compile(nj.opts.AnchorTextRegexp)
+		if err != nil {
+			nj.retChan <- newJobStatus{
+				sub:                  pb.Subscription{},
+				subscriber:           &subscriber{},
+				cancelChan:           nil,
+				registerDoneListener: nil,
+				err:                  errors.New("AnchorTextRegexp doesn't compile - '" + nj.opts.AnchorTextRegexp + "' - " + err.Error()),
+			}
+			return
+		}
+	}
+	canc := make(chan cancelSignal)
+	regDoneC := make(chan chan jobDoneSignal)
+	randChan := make(chan int, 5)
+	s.jobs[sub.Subcode] = &job{
+		domainname:           domainname,
+		opts:                 nj.opts,
+		sub:                  sub,
+		prevRun:              time.Time{},
+		nextRun:              time.Time{},
+		frequency:            freq,
+		runNumber:            0,
+		running:              false,
+		done:                 false,
+		seqnum:               0,
+		callbackURLRegexp:    callbackURLRegexp,
+		followURLRegexp:      followURLRegexp,
+		anchorTextRegexp:     anchorTextRegexp,
+		subscriber:           subr,
+		mu:                   sync.Mutex{},
+		duplicates:           map[string]bool{},
+		cancelChan:           canc,
+		doneListeners:        []chan jobDoneSignal{},
+		registerDoneListener: regDoneC,
+		doneChan:             make(chan jobDoneSignal),
+		randChan:             randChan,
+		log:                  nil,
+	}
+	go randomGenerator(int(nj.opts.MinDelay), int(nj.opts.MaxDelay), randChan)
+	nj.retChan <- newJobStatus{
+		sub:                  sub,
+		subscriber:           subr,
+		cancelChan:           canc,
+		registerDoneListener: regDoneC,
+		err:                  nil,
+	}
+}
+
+func (s *ideaCrawlerServer) JobManager(newJobChan <-chan newJob, newSubChan <-chan newSub) {
 	for {
 		select {
 		case nj := <-newJobChan:
-			log.Println("Received new job", nj.opts.SeedUrl)
-			domainname, err := DomainNameFromURL(nj.opts.SeedUrl)
-			if err != nil {
-				nj.retChan <- NewJobStatus{pb.Subscription{}, &Subscriber{}, nil, nil, err}
-				continue
-			}
-			emptyTS, _ := ptypes.TimestampProto(time.Time{})
-			sub := pb.Subscription{uuid.New().String(), domainname, pb.SubType_SEQNUM, 0, emptyTS}
-
-			freq, err := ptypes.Duration(nj.opts.Frequency)
-			if nj.opts.Repeat == true && err != nil {
-				nj.retChan <- NewJobStatus{pb.Subscription{}, &Subscriber{}, nil, nil, errors.New("Bad value for DomainOpt.Frequency field - " + domainname + " - " + err.Error())}
-				continue
-			}
-			subr := &Subscriber{}
-			if nj.subscribe == true {
-				subr = &Subscriber{
-					doneSeqnum:           0,
-					reqChan:              make(chan pb.PageRequest, 1000),
-					sendChan:             make(chan pb.PageHTML, 1000),
-					stopChan:             make(chan bool, 3),
-					analyzedURLChan:      nil,
-					stopAnalyzedURLChan:  nil,
-					analyzedURLConnected: false,
-					connected:            true,
-				}
-			}
-			var callbackUrlRegexp, followUrlRegexp, anchorTextRegexp *regexp.Regexp
-			if len(nj.opts.CallbackUrlRegexp) > 0 {
-				callbackUrlRegexp, err = regexp.Compile(nj.opts.CallbackUrlRegexp)
-				if err != nil {
-					nj.retChan <- NewJobStatus{pb.Subscription{}, &Subscriber{}, nil, nil, errors.New("CallbackUrlRegexp doesn't compile - '" + nj.opts.CallbackUrlRegexp + "' - " + err.Error())}
-					continue
-				}
-			}
-			if len(nj.opts.FollowUrlRegexp) > 0 {
-				followUrlRegexp, err = regexp.Compile(nj.opts.FollowUrlRegexp)
-				if err != nil {
-					nj.retChan <- NewJobStatus{pb.Subscription{}, &Subscriber{}, nil, nil, errors.New("FollowUrlRegexp doesn't compile - '" + nj.opts.FollowUrlRegexp + "' - " + err.Error())}
-					continue
-				}
-			}
-			if len(nj.opts.AnchorTextRegexp) > 0 {
-				anchorTextRegexp, err = regexp.Compile(nj.opts.AnchorTextRegexp)
-				if err != nil {
-					nj.retChan <- NewJobStatus{pb.Subscription{}, &Subscriber{}, nil, nil, errors.New("AnchorTextRegexp doesn't compile - '" + nj.opts.AnchorTextRegexp + "' - " + err.Error())}
-					continue
-				}
-			}
-			canc := make(chan cancelSignal)
-			regDoneC := make(chan chan jobDoneSignal)
-			randChan := make(chan int, 5)
-			s.jobs[sub.Subcode] = &Job{domainname, nj.opts, sub, time.Time{}, time.Time{}, freq, 0, false, false, 0, callbackUrlRegexp, followUrlRegexp, anchorTextRegexp, subr, sync.Mutex{}, map[string]bool{}, canc, []chan jobDoneSignal{}, regDoneC, make(chan jobDoneSignal), randChan, nil}
-			go randomGenerator(int(nj.opts.MinDelay), int(nj.opts.MaxDelay), randChan)
-			nj.retChan <- NewJobStatus{sub, subr, canc, regDoneC, nil}
+			s.addNewJob(nj)
 		case ns := <-newSubChan:
 			job := s.jobs[ns.sub.Subcode]
 			if job == nil {
-				ns.retChan <- NewJobStatus{pb.Subscription{}, &Subscriber{}, nil, nil, errors.New("Unable to find subcode - " + ns.sub.Subcode)}
+				ns.retChan <- newJobStatus{
+					sub:                  pb.Subscription{},
+					subscriber:           &subscriber{},
+					cancelChan:           nil,
+					registerDoneListener: nil,
+					err:                  errors.New("Unable to find subcode - " + ns.sub.Subcode),
+				}
 				continue
 			}
-			ns.retChan <- NewJobStatus{job.sub, job.subscriber, job.cancelChan, job.registerDoneListener, nil}
+			ns.retChan <- newJobStatus{
+				sub:                  job.sub,
+				subscriber:           job.subscriber,
+				cancelChan:           job.cancelChan,
+				registerDoneListener: job.registerDoneListener,
+				err:                  nil,
+			}
 		default:
 			time.Sleep(50 * time.Millisecond)
 		}
@@ -437,27 +366,27 @@ func (s *ideaCrawlerServer) JobManager(newJobChan <-chan NewJob, newSubChan <-ch
 	}
 }
 
-func (s *ideaCrawlerServer) RunJob(subId string, job *Job) {
+func (s *ideaCrawlerServer) RunJob(subID string, j *job) {
 	var logfile = "/dev/stdout"
 	if cliParams.LogPath != "" {
-		logfile = path.Join(cliParams.LogPath, "job-"+subId+".log")
+		logfile = path.Join(cliParams.LogPath, "job-"+subID+".log")
 	}
 	logFP, err := os.Create(logfile)
 	if err != nil {
 		log.Printf("Unable to create logfile %v. not proceeding with job.", logfile)
 		return
 	}
-	job.log = log.New(logFP, subId+": ", log.LstdFlags|log.Lshortfile)
-	job.log.Println("starting job -", subId)
+	j.log = log.New(logFP, subID+": ", log.LstdFlags|log.Lshortfile)
+	j.log.Println("starting job -", subID)
 	go func() {
-		job.doneListeners = []chan jobDoneSignal{}
+		j.doneListeners = []chan jobDoneSignal{}
 	registerDoneLoop:
 		for {
 			select {
-			case vv := <-job.registerDoneListener:
-				job.doneListeners = append(job.doneListeners, vv)
-			case jds := <-job.doneChan:
-				for _, ww := range job.doneListeners {
+			case vv := <-j.registerDoneListener:
+				j.doneListeners = append(j.doneListeners, vv)
+			case jds := <-j.doneChan:
+				for _, ww := range j.doneListeners {
 					ww <- jds
 				}
 				break registerDoneLoop
@@ -465,44 +394,44 @@ func (s *ideaCrawlerServer) RunJob(subId string, job *Job) {
 		}
 	}()
 	defer func() {
-		close(job.subscriber.sendChan)
-		job.running = false
+		close(j.subscriber.sendChan)
+		j.running = false
 
-		job.done = true
-		job.doneChan <- jobDoneSignal{}
-		job.log.Println("stopping job -", subId)
+		j.done = true
+		j.doneChan <- jobDoneSignal{}
+		j.log.Println("stopping job -", subID)
 	}()
-	job.runNumber += 1
+	j.runNumber++
 
 	sendPageHTML := func(ctx *fetchbot.Context, phtml pb.PageHTML) {
-		if job.subscriber.connected == false {
+		if j.subscriber.connected == false {
 			return
 		}
 		select {
-		case <-job.subscriber.stopChan:
-			job.subscriber.connected = false
-			if ctx != nil && job.opts.CancelOnDisconnect {
-				job.log.Printf("Lost client, cancelling queue.\n")
-				job.cancelChan <- cancelSignal{}
+		case <-j.subscriber.stopChan:
+			j.subscriber.connected = false
+			if ctx != nil && j.opts.CancelOnDisconnect {
+				j.log.Printf("Lost client, cancelling queue.\n")
+				j.cancelChan <- cancelSignal{}
 			} else {
-				job.log.Printf("Lost client\n")
+				j.log.Printf("Lost client\n")
 			}
 			return
-		case job.subscriber.sendChan <- phtml:
+		case j.subscriber.sendChan <- phtml:
 			return
 		}
 	}
 
 	mux := fetchbot.NewMux()
 	mux.HandleErrors(fetchbot.HandlerFunc(func(ctx *fetchbot.Context, res *http.Response, err error) {
-		job.log.Printf("ERR - fetch error : %s\n", err.Error())
+		j.log.Printf("ERR - fetch error : %s\n", err.Error())
 		phtml := pb.PageHTML{
 			Success: false,
 			Error:   err.Error(),
 			Sub:     &pb.Subscription{},
 			//TODO -- Check if ctx always has the correct URL
 			Url:            ctx.Cmd.URL().String(),
-			Httpstatuscode: HTTPSTATUS_FETCHBOT_ERROR,
+			Httpstatuscode: sc.FetchbotError,
 			Content:        []byte{},
 			MetaStr:        ctx.Cmd.(CrawlCommand).MetaStr(),
 			UrlDepth:       ctx.Cmd.(CrawlCommand).URLDepth(),
@@ -514,21 +443,21 @@ func (s *ideaCrawlerServer) RunJob(subId string, job *Job) {
 	// requests.
 	mux.Response().Method("GET").ContentType("text/html").Handler(fetchbot.HandlerFunc(
 		func(ctx *fetchbot.Context, res *http.Response, err error) {
-			requestUrl := res.Request.URL
+			requestURL := res.Request.URL
 			ccmd := ctx.Cmd.(CrawlCommand)
 			anchorText := ccmd.anchorText
 			if ccmd.noCallback == true {
 				return
 			}
 			if res.StatusCode > 399 && res.StatusCode < 600 {
-				job.log.Printf("STATUS - %s %s - %d : %s\n", ctx.Cmd.Method(), ctx.Cmd.URL(), res.StatusCode, res.Status)
+				j.log.Printf("STATUS - %s %s - %d : %s\n", ctx.Cmd.Method(), ctx.Cmd.URL(), res.StatusCode, res.Status)
 				if ccmd.URLDepth() == 0 {
 					phtml := pb.PageHTML{
 						Success: false,
 						Error:   res.Status,
 						Sub:     &pb.Subscription{},
 						//Url:            ctx.Cmd.URL().String(),
-						Url:            requestUrl.String(),
+						Url:            requestURL.String(),
 						Httpstatuscode: int32(res.StatusCode),
 						Content:        []byte{},
 						MetaStr:        ccmd.MetaStr(),
@@ -541,13 +470,13 @@ func (s *ideaCrawlerServer) RunJob(subId string, job *Job) {
 			pageBody, err := ioutil.ReadAll(res.Body)
 			if err != nil {
 				emsg := fmt.Sprintf("ERR - %s %s - %s", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
-				job.log.Println(emsg)
+				j.log.Println(emsg)
 				phtml := pb.PageHTML{
 					Success:        false,
 					Error:          emsg,
 					Sub:            &pb.Subscription{},
-					Url:            requestUrl.String(),
-					Httpstatuscode: HTTPSTATUS_RESPONSE_ERROR,
+					Url:            requestURL.String(),
+					Httpstatuscode: sc.ResponseError,
 					MetaStr:        ctx.Cmd.(CrawlCommand).MetaStr(),
 					Content:        []byte{},
 					UrlDepth:       ccmd.URLDepth(),
@@ -557,94 +486,94 @@ func (s *ideaCrawlerServer) RunJob(subId string, job *Job) {
 			}
 
 			// check if still logged in
-			if job.opts.Login && job.opts.CheckLoginAfterEachPage && job.opts.LoginSuccessCheck != nil {
+			if j.opts.Login && j.opts.CheckLoginAfterEachPage && j.opts.LoginSuccessCheck != nil {
 				doc, _ := htmlquery.Parse(bytes.NewBuffer(pageBody))
-				expr, _ := xpath.Compile(job.opts.LoginSuccessCheck.Key) // won't lead to error now, because this is the second time this is happening.
+				expr, _ := xpath.Compile(j.opts.LoginSuccessCheck.Key) // won't lead to error now, because this is the second time this is happening.
 
 				iter := expr.Evaluate(htmlquery.CreateXPathNavigator(doc)).(*xpath.NodeIterator)
 				iter.MoveNext()
-				if strings.ToLower(iter.Current().Value()) != strings.ToLower(job.opts.LoginSuccessCheck.Value) {
-					errMsg := fmt.Sprintf("Not logged in anymore: In xpath '%s', expected '%s', but got '%s'. Not continuing.", job.opts.LoginSuccessCheck.Key, job.opts.LoginSuccessCheck.Value, iter.Current().Value())
-					job.log.Println(errMsg)
+				if strings.ToLower(iter.Current().Value()) != strings.ToLower(j.opts.LoginSuccessCheck.Value) {
+					errMsg := fmt.Sprintf("Not logged in anymore: In xpath '%s', expected '%s', but got '%s'. Not continuing.", j.opts.LoginSuccessCheck.Key, j.opts.LoginSuccessCheck.Value, iter.Current().Value())
+					j.log.Println(errMsg)
 					phtml := pb.PageHTML{
 						Success:        false,
 						Error:          errMsg,
 						Sub:            nil, //no subscription object
 						Url:            "",
-						Httpstatuscode: HTTPSTATUS_NOLONGER_LOGGED_IN,
+						Httpstatuscode: sc.NolongerLoggedIn,
 						Content:        []byte{},
 						UrlDepth:       ccmd.URLDepth(),
 					}
 					sendPageHTML(ctx, phtml)
-					job.cancelChan <- cancelSignal{}
+					j.cancelChan <- cancelSignal{}
 					if cliParams.SaveLoginPages != "" {
 						err := ioutil.WriteFile(path.Join(cliParams.SaveLoginPages, "loggedout.html"), pageBody, 0755)
 						if err != nil {
-							job.log.Println("ERR - unable to save loggedout file:", err)
+							j.log.Println("ERR - unable to save loggedout file:", err)
 						}
 					}
-					job.done = true
+					j.done = true
 					return
 				}
 			}
 
 			// Enqueue all links as HEAD requests, if they match followUrlRegexp
-			if job.opts.NoFollow == false && (job.followUrlRegexp == nil || job.followUrlRegexp.MatchString(ctx.Cmd.URL().String()) == true) && (job.opts.Depth < 0 || ccmd.URLDepth() < job.opts.Depth) {
+			if j.opts.NoFollow == false && (j.followURLRegexp == nil || j.followURLRegexp.MatchString(ctx.Cmd.URL().String()) == true) && (j.opts.Depth < 0 || ccmd.URLDepth() < j.opts.Depth) {
 				// Process the body to find the links
 				doc, err := goquery.NewDocumentFromReader(strings.NewReader(string(pageBody)))
 				if err != nil {
 					emsg := fmt.Sprintf("ERR - %s %s - %s\n", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
-					job.log.Println(emsg)
+					j.log.Println(emsg)
 					phtml := pb.PageHTML{
 						Success:        false,
 						Error:          emsg,
 						Sub:            &pb.Subscription{},
 						Url:            "",
-						Httpstatuscode: HTTPSTATUS_FOLLOW_PARSE_ERROR,
+						Httpstatuscode: sc.FollowParseError,
 						Content:        []byte{},
 						UrlDepth:       ccmd.URLDepth(),
 					}
 					sendPageHTML(ctx, phtml)
 					return
 				}
-				job.EnqueueLinks(ctx, doc, ccmd.URLDepth()+1, requestUrl)
-				job.log.Println("Enqueued", ctx.Cmd.URL().String())
+				j.enqueueLinks(ctx, doc, ccmd.URLDepth()+1, requestURL)
+				j.log.Println("Enqueued", ctx.Cmd.URL().String())
 			}
 
 			var callbackPage = false
 
 			// Callback if depth = 0
-			if job.opts.CallbackSeedUrl == true && ccmd.URLDepth() == 0 {
+			if j.opts.CallbackSeedUrl == true && ccmd.URLDepth() == 0 {
 				callbackPage = true
 			}
 
-			if len(job.opts.CallbackUrlRegexp) == 0 && len(job.opts.CallbackXpathMatch) == 0 && len(job.opts.CallbackXpathRegexp) == 0 {
+			if len(j.opts.CallbackUrlRegexp) == 0 && len(j.opts.CallbackXpathMatch) == 0 && len(j.opts.CallbackXpathRegexp) == 0 {
 				callbackPage = true
 			}
 
-			if job.callbackUrlRegexp != nil && job.callbackUrlRegexp.MatchString(ctx.Cmd.URL().String()) == false {
-				job.log.Printf("Url '%v' did not match callbackRegexp '%v'\n", ctx.Cmd.URL().String(), job.callbackUrlRegexp)
-			} else if job.callbackUrlRegexp != nil {
+			if j.callbackURLRegexp != nil && j.callbackURLRegexp.MatchString(ctx.Cmd.URL().String()) == false {
+				j.log.Printf("Url '%v' did not match callbackRegexp '%v'\n", ctx.Cmd.URL().String(), j.callbackURLRegexp)
+			} else if j.callbackURLRegexp != nil {
 				callbackPage = true
 			}
 
-			if job.anchorTextRegexp != nil && job.anchorTextRegexp.MatchString(anchorText) == false {
-				job.log.Printf("Anchor Text '%v' did not match anchorTextRegexp '%v'\n", anchorText, job.anchorTextRegexp)
-			} else if job.anchorTextRegexp != nil {
+			if j.anchorTextRegexp != nil && j.anchorTextRegexp.MatchString(anchorText) == false {
+				j.log.Printf("Anchor Text '%v' did not match anchorTextRegexp '%v'\n", anchorText, j.anchorTextRegexp)
+			} else if j.anchorTextRegexp != nil {
 				callbackPage = true
 			}
 
-			if callbackPage == false && len(job.opts.CallbackXpathMatch) > 0 {
+			if callbackPage == false && len(j.opts.CallbackXpathMatch) > 0 {
 				passthru := true
 				doc, _ := htmlquery.Parse(bytes.NewBuffer(pageBody))
-				for _, xm := range job.opts.CallbackXpathMatch {
+				for _, xm := range j.opts.CallbackXpathMatch {
 					expr, _ := xpath.Compile(xm.Key)
 
 					iter := expr.Evaluate(htmlquery.CreateXPathNavigator(doc)).(*xpath.NodeIterator)
 					iter.MoveNext()
 					if iter.Current().Value() != xm.Value {
 						passthru = false
-						job.log.Printf("Url '%v' did not have '%v' at xpath '%v'\n", ctx.Cmd.URL().String(), xm.Value, xm.Key)
+						j.log.Printf("Url '%v' did not have '%v' at xpath '%v'\n", ctx.Cmd.URL().String(), xm.Value, xm.Key)
 						break
 					}
 				}
@@ -653,17 +582,17 @@ func (s *ideaCrawlerServer) RunJob(subId string, job *Job) {
 				}
 			}
 
-			if callbackPage == false && len(job.opts.CallbackXpathRegexp) > 0 {
+			if callbackPage == false && len(j.opts.CallbackXpathRegexp) > 0 {
 				passthru := true
 				doc, _ := htmlquery.Parse(bytes.NewBuffer(pageBody))
-				for _, xm := range job.opts.CallbackXpathRegexp {
+				for _, xm := range j.opts.CallbackXpathRegexp {
 					expr, _ := xpath.Compile(xm.Key)
 
 					iter := expr.Evaluate(htmlquery.CreateXPathNavigator(doc)).(*xpath.NodeIterator)
 					iter.MoveNext()
 					if iter.Current().Value() != xm.Value {
 						passthru = false
-						job.log.Printf("Url '%v' did not have '%v' at xpath '%v'\n", ctx.Cmd.URL().String(), xm.Value, xm.Key)
+						j.log.Printf("Url '%v' did not have '%v' at xpath '%v'\n", ctx.Cmd.URL().String(), xm.Value, xm.Key)
 						break
 					}
 				}
@@ -675,25 +604,25 @@ func (s *ideaCrawlerServer) RunJob(subId string, job *Job) {
 			if callbackPage == false {
 				return // no need to send page back to client.
 			}
-			shippingUrl := ""
+			shippingURL := ""
 			if strings.HasPrefix(ctx.Cmd.URL().Scheme, "crawljs") == true {
-				shippingUrl, err = url.QueryUnescape(ctx.Cmd.URL().RawQuery)
+				shippingURL, err = url.QueryUnescape(ctx.Cmd.URL().RawQuery)
 				if err != nil {
-					job.log.Printf("Unable to UnEscape RawQuery - %v, err: %v\n", ctx.Cmd.URL().RawQuery, err)
-					shippingUrl = ctx.Cmd.URL().String()
+					j.log.Printf("Unable to UnEscape RawQuery - %v, err: %v\n", ctx.Cmd.URL().RawQuery, err)
+					shippingURL = ctx.Cmd.URL().String()
 				}
 			} else {
-				shippingUrl = ctx.Cmd.URL().String()
+				shippingURL = ctx.Cmd.URL().String()
 			}
-			job.log.Println("Shipping", shippingUrl)
+			j.log.Println("Shipping", shippingURL)
 
-			sub := job.sub
+			sub := j.sub
 
 			phtml := pb.PageHTML{
 				Success:        true,
 				Error:          "",
 				Sub:            &sub,
-				Url:            shippingUrl,
+				Url:            shippingURL,
 				Httpstatuscode: int32(res.StatusCode),
 				Content:        pageBody,
 				MetaStr:        ccmd.MetaStr(),
@@ -714,14 +643,14 @@ func (s *ideaCrawlerServer) RunJob(subId string, job *Job) {
 				metaStr:    ctx.Cmd.(CrawlCommand).MetaStr(),
 			}
 			if err := ctx.Q.Send(cmd); err != nil {
-				job.log.Printf("ERR - %s %s - %s\n", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
+				j.log.Printf("ERR - %s %s - %s\n", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
 			}
 		}))
 
 	f := fetchbot.New(mux)
-	job.log.Printf("MaxConcurrentRequests=%v\n", int64(job.opts.MaxConcurrentRequests))
-	var networkTransport http.RoundTripper = nil
-	if job.opts.NetworkIface != "" && cliParams.DialAddress != "" {
+	j.log.Printf("MaxConcurrentRequests=%v\n", int64(j.opts.MaxConcurrentRequests))
+	var networkTransport http.RoundTripper
+	if j.opts.NetworkIface != "" && cliParams.DialAddress != "" {
 		localAddress := &net.TCPAddr{
 			IP:   net.ParseIP(cliParams.DialAddress), // a secondary local IP I assigned to me
 			Port: 80,
@@ -740,19 +669,23 @@ func (s *ideaCrawlerServer) RunJob(subId string, job *Job) {
 			ExpectContinueTimeout: 1 * time.Second,
 		}
 	}
-	if job.opts.Chrome == false && job.opts.Login == false {
+	if j.opts.Chrome == false && j.opts.Login == false {
 		gCurCookieJar, _ := cookiejar.New(nil)
 		httpClient := &http.Client{
 			Transport:     networkTransport,
 			CheckRedirect: nil,
 			Jar:           gCurCookieJar,
 		}
-		if job.opts.Prefetch == true {
-			httpClient.Transport = &httpcache.Transport{networkTransport, diskcache.New("/tmp/ideacache/" + job.sub.Subcode), true}
+		if j.opts.Prefetch == true {
+			httpClient.Transport = &httpcache.Transport{
+				Transport:           networkTransport,
+				Cache:               diskcache.New("/tmp/ideacache/" + j.sub.Subcode),
+				MarkCachedResponses: true,
+			}
 		}
-		f.HttpClient = &IdeaCrawlDoer{httpClient, job, semaphore.NewWeighted(int64(job.opts.MaxConcurrentRequests)), s}
+		f.HttpClient = &Doer{httpClient, j, semaphore.NewWeighted(int64(j.opts.MaxConcurrentRequests)), s}
 	}
-	if job.opts.Chrome == false && job.opts.Login == true {
+	if j.opts.Chrome == false && j.opts.Login == true {
 		// create our own httpClient and attach a cookie jar to it,
 		// login using that client to the site if required,
 		// check if login succeeded,
@@ -763,50 +696,54 @@ func (s *ideaCrawlerServer) RunJob(subId string, job *Job) {
 			CheckRedirect: nil,
 			Jar:           gCurCookieJar,
 		}
-		if job.opts.Prefetch == true {
-			httpClient.Transport = &httpcache.Transport{networkTransport, diskcache.New("/tmp/ideacache/" + job.sub.Subcode), true}
+		if j.opts.Prefetch == true {
+			httpClient.Transport = &httpcache.Transport{
+				Transport:           networkTransport,
+				Cache:               diskcache.New("/tmp/ideacache/" + j.sub.Subcode),
+				MarkCachedResponses: true,
+			}
 		}
 		var payload = make(url.Values)
-		if job.opts.LoginParseFields == true {
-			afterTime := job.opts.MinDelay
+		if j.opts.LoginParseFields == true {
+			afterTime := j.opts.MinDelay
 			if afterTime < 5 {
 				afterTime = 5
 			}
-			if job.opts.MaxDelay > job.opts.MinDelay {
-				afterTime = int32(<-job.randChan)
-				job.log.Printf("Next delay - %v\n", time.Duration(afterTime)*time.Second)
+			if j.opts.MaxDelay > j.opts.MinDelay {
+				afterTime = int32(<-j.randChan)
+				j.log.Printf("Next delay - %v\n", time.Duration(afterTime)*time.Second)
 			}
 			after := time.After(time.Duration(afterTime) * time.Second)
 
-			httpReq, err := http.NewRequest("GET", job.opts.LoginUrl, nil)
+			httpReq, err := http.NewRequest("GET", j.opts.LoginUrl, nil)
 			if err != nil {
-				job.log.Println(err)
+				j.log.Println(err)
 				return
 			}
-			httpReq.Header.Set("User-Agent", job.opts.Useragent)
+			httpReq.Header.Set("User-Agent", j.opts.Useragent)
 
 			httpResp, err := httpClient.Do(httpReq)
 			if err != nil {
-				job.log.Println(err)
+				j.log.Println(err)
 				return
 			}
 			pageBody, err := ioutil.ReadAll(httpResp.Body)
 			if err != nil {
-				job.log.Println("Unable to read http response:", err)
+				j.log.Println("Unable to read http response:", err)
 				return
 			}
 			if cliParams.SaveLoginPages != "" {
 				err := ioutil.WriteFile(path.Join(cliParams.SaveLoginPages, "login.html"), pageBody, 0755)
 				if err != nil {
-					job.log.Println("ERR - Unable to save login file:", err)
+					j.log.Println("ERR - Unable to save login file:", err)
 				}
 			}
 
 			doc, _ := htmlquery.Parse(bytes.NewBuffer(pageBody))
-			for _, kvp := range job.opts.LoginParseXpath {
+			for _, kvp := range j.opts.LoginParseXpath {
 				expr, err := xpath.Compile(kvp.Value)
 				if err != nil {
-					job.log.Println(err)
+					j.log.Println(err)
 					return
 				}
 
@@ -817,40 +754,40 @@ func (s *ideaCrawlerServer) RunJob(subId string, job *Job) {
 			<-after
 		}
 
-		for _, kvp := range job.opts.LoginPayload {
+		for _, kvp := range j.opts.LoginPayload {
 			payload.Set(kvp.Key, kvp.Value)
 		}
-		httpResp, err := httpClient.PostForm(job.opts.LoginUrl, payload)
+		httpResp, err := httpClient.PostForm(j.opts.LoginUrl, payload)
 		if err != nil {
-			job.log.Println(err)
+			j.log.Println(err)
 			return
 		}
 		pageBody, err := ioutil.ReadAll(httpResp.Body)
 		if cliParams.SaveLoginPages != "" {
 			err := ioutil.WriteFile(path.Join(cliParams.SaveLoginPages, "loggedin.html"), pageBody, 0755)
 			if err != nil {
-				job.log.Println("ERR - Unable to save loggedin file:", err)
+				j.log.Println("ERR - Unable to save loggedin file:", err)
 			}
 
 		}
 		doc, _ := htmlquery.Parse(bytes.NewBuffer(pageBody))
-		if job.opts.LoginSuccessCheck != nil {
-			expr, err := xpath.Compile(job.opts.LoginSuccessCheck.Key)
+		if j.opts.LoginSuccessCheck != nil {
+			expr, err := xpath.Compile(j.opts.LoginSuccessCheck.Key)
 			if err != nil {
-				job.log.Println(err)
+				j.log.Println(err)
 				return
 			}
 			iter := expr.Evaluate(htmlquery.CreateXPathNavigator(doc)).(*xpath.NodeIterator)
 			iter.MoveNext()
-			if strings.ToLower(iter.Current().Value()) != strings.ToLower(job.opts.LoginSuccessCheck.Value) {
-				errMsg := fmt.Sprintf("Login failed: In xpath '%s', expected '%s', but got '%s'. Not proceeding.", job.opts.LoginSuccessCheck.Key, job.opts.LoginSuccessCheck.Value, iter.Current().Value())
-				job.log.Println(errMsg)
+			if strings.ToLower(iter.Current().Value()) != strings.ToLower(j.opts.LoginSuccessCheck.Value) {
+				errMsg := fmt.Sprintf("Login failed: In xpath '%s', expected '%s', but got '%s'. Not proceeding.", j.opts.LoginSuccessCheck.Key, j.opts.LoginSuccessCheck.Value, iter.Current().Value())
+				j.log.Println(errMsg)
 				phtml := pb.PageHTML{
 					Success:        false,
 					Error:          errMsg,
 					Sub:            nil, //no subscription object
 					Url:            "",
-					Httpstatuscode: HTTPSTATUS_LOGIN_FAILED,
+					Httpstatuscode: sc.LoginFailed,
 					Content:        []byte{},
 				}
 				sendPageHTML(nil, phtml)
@@ -861,55 +798,55 @@ func (s *ideaCrawlerServer) RunJob(subId string, job *Job) {
 				Error:          "",
 				Sub:            nil, //no subscription object
 				Url:            "",
-				Httpstatuscode: HTTPSTATUS_LOGIN_SUCCESS,
+				Httpstatuscode: sc.LoginSuccess,
 				Content:        []byte{},
 			}
 			sendPageHTML(nil, phtml)
-			job.log.Printf("Logged in. Found '%v' in '%v'\n", job.opts.LoginSuccessCheck.Value, job.opts.LoginSuccessCheck.Key)
+			j.log.Printf("Logged in. Found '%v' in '%v'\n", j.opts.LoginSuccessCheck.Value, j.opts.LoginSuccessCheck.Key)
 		}
-		f.HttpClient = &IdeaCrawlDoer{httpClient, job, semaphore.NewWeighted(int64(job.opts.MaxConcurrentRequests)), s}
+		f.HttpClient = &Doer{httpClient, j, semaphore.NewWeighted(int64(j.opts.MaxConcurrentRequests)), s}
 	}
 
-	if job.opts.Chrome == true && job.opts.Login == true {
-		job.opts.Impolite = true // Always impolite in Chrome mode.
-		if job.opts.ChromeBinary == "" {
-			job.opts.ChromeBinary = "/usr/lib64/chromium-browser/headless_shell"
+	if j.opts.Chrome == true && j.opts.Login == true {
+		j.opts.Impolite = true // Always impolite in Chrome mode.
+		if j.opts.ChromeBinary == "" {
+			j.opts.ChromeBinary = "/usr/lib64/chromium-browser/headless_shell"
 		}
-		cl := chromeclient.NewChromeClient(job.opts.ChromeBinary)
-		if job.opts.DomLoadTime > 0 {
-			cl.SetDomLoadTime(job.opts.DomLoadTime)
+		cl := chromeclient.NewChromeClient(j.opts.ChromeBinary)
+		if j.opts.DomLoadTime > 0 {
+			cl.SetDomLoadTime(j.opts.DomLoadTime)
 		}
 		err := cl.Start()
 		if err != nil {
-			job.log.Println("Unable to start chrome:", err)
+			j.log.Println("Unable to start chrome:", err)
 			return
 		}
 		defer cl.Stop()
-		urlobj, _ := url.Parse(job.opts.LoginUrl)
+		urlobj, _ := url.Parse(j.opts.LoginUrl)
 		req := &http.Request{
 			URL: urlobj,
 		}
 		loginResp, err := cl.Do(req)
 		if err != nil {
-			job.log.Println("Http request to chrome failed:", err)
+			j.log.Println("Http request to chrome failed:", err)
 			return
 		}
 		loginBody, err := ioutil.ReadAll(loginResp.Body)
 		if err != nil {
-			job.log.Println("Unable to read http response", err)
+			j.log.Println("Unable to read http response", err)
 			return
 		}
 		if cliParams.SaveLoginPages != "" {
 			err := ioutil.WriteFile(path.Join(cliParams.SaveLoginPages, "login.html"), loginBody, 0755)
 			if err != nil {
-				job.log.Println("ERR - Unable to save login file:", err)
+				j.log.Println("ERR - Unable to save login file:", err)
 			}
 		}
 		loginjs := &url.URL{
 			Scheme:   "crawljs-jscript",
-			Host:     job.opts.LoginUrl,
-			Path:     url.PathEscape(job.opts.LoginJS), // js string
-			RawQuery: url.QueryEscape(job.opts.LoginUrl),
+			Host:     j.opts.LoginUrl,
+			Path:     url.PathEscape(j.opts.LoginJS), // js string
+			RawQuery: url.QueryEscape(j.opts.LoginUrl),
 		}
 		loginJsReq := &http.Request{
 			URL: loginjs,
@@ -919,28 +856,28 @@ func (s *ideaCrawlerServer) RunJob(subId string, job *Job) {
 		if cliParams.SaveLoginPages != "" {
 			err := ioutil.WriteFile(path.Join(cliParams.SaveLoginPages, "loggedin.html"), loggedInBody, 0755)
 			if err != nil {
-				job.log.Println("ERR - Unable to save loggedin file:", err)
+				j.log.Println("ERR - Unable to save loggedin file:", err)
 			}
 
 		}
 		doc, _ := htmlquery.Parse(bytes.NewBuffer(loggedInBody))
-		if job.opts.LoginSuccessCheck != nil {
-			expr, err := xpath.Compile(job.opts.LoginSuccessCheck.Key)
+		if j.opts.LoginSuccessCheck != nil {
+			expr, err := xpath.Compile(j.opts.LoginSuccessCheck.Key)
 			if err != nil {
-				job.log.Printf("Unable to compile xpath - %v; err:%v\n", job.opts.LoginSuccessCheck.Key, err)
+				j.log.Printf("Unable to compile xpath - %v; err:%v\n", j.opts.LoginSuccessCheck.Key, err)
 				return
 			}
 			iter := expr.Evaluate(htmlquery.CreateXPathNavigator(doc)).(*xpath.NodeIterator)
 			iter.MoveNext()
-			if iter.Current().Value() != job.opts.LoginSuccessCheck.Value {
-				errMsg := fmt.Sprintf("Login failed: In xpath '%s', expected '%s', but got '%s'. Not proceeding.", job.opts.LoginSuccessCheck.Key, job.opts.LoginSuccessCheck.Value, iter.Current().Value())
-				job.log.Println(errMsg)
+			if iter.Current().Value() != j.opts.LoginSuccessCheck.Value {
+				errMsg := fmt.Sprintf("Login failed: In xpath '%s', expected '%s', but got '%s'. Not proceeding.", j.opts.LoginSuccessCheck.Key, j.opts.LoginSuccessCheck.Value, iter.Current().Value())
+				j.log.Println(errMsg)
 				phtml := pb.PageHTML{
 					Success:        false,
 					Error:          errMsg,
 					Sub:            nil, //no subscription object
 					Url:            "",
-					Httpstatuscode: HTTPSTATUS_LOGIN_FAILED,
+					Httpstatuscode: sc.LoginFailed,
 					Content:        []byte{},
 				}
 				sendPageHTML(nil, phtml)
@@ -951,43 +888,43 @@ func (s *ideaCrawlerServer) RunJob(subId string, job *Job) {
 				Error:          "",
 				Sub:            nil, //no subscription object
 				Url:            "",
-				Httpstatuscode: HTTPSTATUS_LOGIN_SUCCESS,
+				Httpstatuscode: sc.LoginSuccess,
 				Content:        []byte{},
 			}
 			sendPageHTML(nil, phtml)
-			job.log.Printf("Logged in. Found '%v' in '%v'\n", job.opts.LoginSuccessCheck.Value, job.opts.LoginSuccessCheck.Key)
+			j.log.Printf("Logged in. Found '%v' in '%v'\n", j.opts.LoginSuccessCheck.Value, j.opts.LoginSuccessCheck.Key)
 		}
-		f.HttpClient = &IdeaCrawlDoer{cl, job, semaphore.NewWeighted(int64(job.opts.MaxConcurrentRequests)), s}
+		f.HttpClient = &Doer{cl, j, semaphore.NewWeighted(int64(j.opts.MaxConcurrentRequests)), s}
 	}
 
-	if job.opts.Chrome == true && job.opts.Login == false {
-		job.opts.Impolite = true // Always impolite in Chrome mode.
-		if job.opts.ChromeBinary == "" {
-			job.opts.ChromeBinary = "/usr/lib64/chromium-browser/headless_shell"
+	if j.opts.Chrome == true && j.opts.Login == false {
+		j.opts.Impolite = true // Always impolite in Chrome mode.
+		if j.opts.ChromeBinary == "" {
+			j.opts.ChromeBinary = "/usr/lib64/chromium-browser/headless_shell"
 		}
-		cl := chromeclient.NewChromeClient(job.opts.ChromeBinary)
-		if job.opts.DomLoadTime > 0 {
-			cl.SetDomLoadTime(job.opts.DomLoadTime)
+		cl := chromeclient.NewChromeClient(j.opts.ChromeBinary)
+		if j.opts.DomLoadTime > 0 {
+			cl.SetDomLoadTime(j.opts.DomLoadTime)
 		}
 		err := cl.Start()
 		if err != nil {
-			job.log.Println("Unable to start chrome:", err)
+			j.log.Println("Unable to start chrome:", err)
 			return
 		}
 		defer cl.Stop()
-		f.HttpClient = &IdeaCrawlDoer{cl, job, semaphore.NewWeighted(int64(job.opts.MaxConcurrentRequests)), s}
+		f.HttpClient = &Doer{cl, j, semaphore.NewWeighted(int64(j.opts.MaxConcurrentRequests)), s}
 	}
 
-	f.DisablePoliteness = job.opts.Impolite
+	f.DisablePoliteness = j.opts.Impolite
 	// minimal crawl delay; actual randomized delay is implemented in IdeaCrawlDoer's Do method.
 	f.CrawlDelay = 50 * time.Millisecond
-	if job.opts.MaxIdleTime < 600 {
+	if j.opts.MaxIdleTime < 600 {
 		f.WorkerIdleTTL = 600 * time.Second
 	} else {
-		f.WorkerIdleTTL = time.Duration(job.opts.MaxIdleTime) * time.Second
+		f.WorkerIdleTTL = time.Duration(j.opts.MaxIdleTime) * time.Second
 	}
 	f.AutoClose = true
-	f.UserAgent = job.opts.Useragent
+	f.UserAgent = j.opts.Useragent
 
 	//TODO: hipri: create goroutine to listen for new PageRequest objects
 
@@ -996,59 +933,59 @@ func (s *ideaCrawlerServer) RunJob(subId string, job *Job) {
 	// handle cancel requests
 	go func() {
 		jobDoneChan := make(chan jobDoneSignal)
-		job.registerDoneListener <- jobDoneChan
+		j.registerDoneListener <- jobDoneChan
 		select {
 		case <-jobDoneChan:
 			return
-		case <-job.cancelChan:
+		case <-j.cancelChan:
 			q.Cancel()
-			job.log.Println("Cancelled job:", subId)
+			j.log.Println("Cancelled job:", subID)
 		}
 	}()
 
 	// handle stuff coming through the addPage function
 	go func() {
 		jobDoneChan := make(chan jobDoneSignal)
-		job.registerDoneListener <- jobDoneChan
+		j.registerDoneListener <- jobDoneChan
 	handlePagesLoop:
 		for {
 			select {
-			case pr := <-job.subscriber.reqChan: // TODO: No URL normalization if added through this method?
+			case pr := <-j.subscriber.reqChan: // TODO: No URL normalization if added through this method?
 				switch pr.Reqtype {
 				case pb.PageReqType_GET:
 					// TODO:  add error checking for error from Send functions
-					cmd, err := CreateCommand("GET", pr.Url, pr.MetaStr, 0)
+					cmd, err := newCrawlCommand("GET", pr.Url, pr.MetaStr, 0)
 					if err != nil {
-						job.log.Println(err)
+						j.log.Println(err)
 						return
 					}
 					err = q.Send(cmd)
 					if err != nil {
-						job.log.Println(err)
+						j.log.Println(err)
 						return
 					}
 				case pb.PageReqType_HEAD:
-					cmd, err := CreateCommand("HEAD", pr.Url, pr.MetaStr, 0)
+					cmd, err := newCrawlCommand("HEAD", pr.Url, pr.MetaStr, 0)
 					if err != nil {
-						job.log.Println(err)
+						j.log.Println(err)
 						return
 					}
 					err = q.Send(cmd)
 					if err != nil {
-						job.log.Println(err)
+						j.log.Println(err)
 						return
 					}
 				case pb.PageReqType_BUILTINJS:
-					prUrl, err := url.Parse(pr.Url)
+					prURL, err := url.Parse(pr.Url)
 					if err != nil {
-						job.log.Println(err)
+						j.log.Println(err)
 						return
 					}
 					cmd := CrawlCommand{
 						method: "GET",
 						url: &url.URL{
 							Scheme:   "crawljs-builtinjs",
-							Host:     prUrl.Host,
+							Host:     prURL.Host,
 							Path:     url.PathEscape(pr.Js), // url command name
 							RawQuery: url.QueryEscape(pr.Url),
 						},
@@ -1058,20 +995,20 @@ func (s *ideaCrawlerServer) RunJob(subId string, job *Job) {
 					}
 					err = q.Send(cmd)
 					if err != nil {
-						job.log.Println(err)
+						j.log.Println(err)
 						return
 					}
 				case pb.PageReqType_JSCRIPT:
-					prUrl, err := url.Parse(pr.Url)
+					prURL, err := url.Parse(pr.Url)
 					if err != nil {
-						job.log.Println(err)
+						j.log.Println(err)
 						return
 					}
 					cmd := CrawlCommand{
 						method: "GET",
 						url: &url.URL{
 							Scheme:   "crawljs-jscript",
-							Host:     prUrl.Host,
+							Host:     prURL.Host,
 							Path:     url.PathEscape(pr.Js), // url command name
 							RawQuery: url.QueryEscape(pr.Url),
 						},
@@ -1081,28 +1018,28 @@ func (s *ideaCrawlerServer) RunJob(subId string, job *Job) {
 					}
 					err = q.Send(cmd)
 					if err != nil {
-						job.log.Println(err)
+						j.log.Println(err)
 						return
 					}
 				}
-				job.log.Println("Enqueued page:", pr.Url)
+				j.log.Println("Enqueued page:", pr.Url)
 			case <-jobDoneChan:
 				break handlePagesLoop
 			}
 		}
 	}()
-	if len(job.opts.SeedUrl) > 0 {
-		job.mu.Lock()
-		job.duplicates[job.opts.SeedUrl] = true
-		job.mu.Unlock()
-		cmd, err := CreateCommand("GET", job.opts.SeedUrl, "", 0)
+	if len(j.opts.SeedUrl) > 0 {
+		j.mu.Lock()
+		j.duplicates[j.opts.SeedUrl] = true
+		j.mu.Unlock()
+		cmd, err := newCrawlCommand("GET", j.opts.SeedUrl, "", 0)
 		if err != nil {
-			job.log.Println(err)
+			j.log.Println(err)
 			return
 		}
 		err = q.Send(cmd)
 		if err != nil {
-			job.log.Println(err)
+			j.log.Println(err)
 			return
 		}
 	}
@@ -1127,8 +1064,8 @@ func (s *ideaCrawlerServer) AddPages(stream pb.IdeaCrawler_AddPagesServer) error
 		log.Println(emsg)
 		return errors.New(emsg)
 	}
-	retChan := make(chan NewJobStatus)
-	s.newSubChan <- NewSub{*pgreq1.Sub, retChan}
+	retChan := make(chan newJobStatus)
+	s.newSubChan <- newSub{*pgreq1.Sub, retChan}
 	njs := <-retChan
 	if njs.err != nil {
 		return njs.err
@@ -1169,8 +1106,8 @@ func (s *ideaCrawlerServer) CancelJob(ctx context.Context, sub *pb.Subscription)
 		return &pb.Status{false, emsg}, errors.New(emsg)
 	}
 	log.Println("Cancel request received for job:", sub.Subcode)
-	retChan := make(chan NewJobStatus)
-	s.newSubChan <- NewSub{*sub, retChan}
+	retChan := make(chan newJobStatus)
+	s.newSubChan <- newSub{*sub, retChan}
 	njs := <-retChan
 	if njs.err != nil {
 		log.Println("ERR - Cancel failed -", njs.err.Error())
@@ -1187,8 +1124,8 @@ func (s *ideaCrawlerServer) GetAnalyzedURLs(sub *pb.Subscription, ostream pb.Ide
 		return errors.New(emsg)
 	}
 	log.Println("Analyzed urls request received for job:", sub.Subcode)
-	retChan := make(chan NewJobStatus)
-	s.newSubChan <- NewSub{*sub, retChan}
+	retChan := make(chan newJobStatus)
+	s.newSubChan <- newSub{*sub, retChan}
 	njs := <-retChan
 	if njs.err != nil {
 		log.Println("ERR - Get analyzed urls request failed -", njs.err.Error())
@@ -1213,8 +1150,8 @@ func (s *ideaCrawlerServer) GetAnalyzedURLs(sub *pb.Subscription, ostream pb.Ide
 }
 
 func (s *ideaCrawlerServer) AddDomainAndListen(opts *pb.DomainOpt, ostream pb.IdeaCrawler_AddDomainAndListenServer) error {
-	retChan := make(chan NewJobStatus)
-	s.newJobChan <- NewJob{opts, retChan, true}
+	retChan := make(chan newJobStatus)
+	s.newJobChan <- newJob{opts, retChan, true}
 	njs := <-retChan
 	if njs.err != nil {
 		return njs.err
@@ -1229,7 +1166,7 @@ func (s *ideaCrawlerServer) AddDomainAndListen(opts *pb.DomainOpt, ostream pb.Id
 		Error:          "subscription.object",
 		Sub:            &njs.sub,
 		Url:            "",
-		Httpstatuscode: HTTPSTATUS_SUBSCRIPTION,
+		Httpstatuscode: sc.Subscription,
 		Content:        []byte{},
 	})
 	if err != nil {
@@ -1249,11 +1186,11 @@ func (s *ideaCrawlerServer) AddDomainAndListen(opts *pb.DomainOpt, ostream pb.Id
 	return nil
 }
 
-func (job *Job) EnqueueLinks(ctx *fetchbot.Context, doc *goquery.Document, urlDepth int32, requestUrl *url.URL) {
-	job.mu.Lock()
-	defer job.mu.Unlock()
+func (j *job) enqueueLinks(ctx *fetchbot.Context, doc *goquery.Document, urlDepth int32, requestURL *url.URL) {
+	j.mu.Lock()
+	defer j.mu.Unlock()
 	var SendMethod = "GET"
-	if job.opts.CheckContent == true {
+	if j.opts.CheckContent == true {
 		SendMethod = "HEAD"
 	}
 	var urlMap = make(map[string]bool)
@@ -1262,51 +1199,51 @@ func (job *Job) EnqueueLinks(ctx *fetchbot.Context, doc *goquery.Document, urlDe
 		anchorText := strings.TrimSpace(s.Text())
 
 		// Resolve address
-		u, err := requestUrl.Parse(val)
+		u, err := requestURL.Parse(val)
 		if err != nil {
-			job.log.Printf("enqueuelinks: resolve URL %s - %s\n", val, err)
+			j.log.Printf("enqueuelinks: resolve URL %s - %s\n", val, err)
 			return
 		}
 		normFlags := purell.FlagsSafe
-		if job.opts.UnsafeNormalizeURL == true {
+		if j.opts.UnsafeNormalizeURL == true {
 			normFlags = purell.FlagsSafe | purell.FlagRemoveFragment | purell.FlagRemoveDirectoryIndex
 			// Remove query params
 			u.RawQuery = ""
 		}
 		nurl := purell.NormalizeURL(u, normFlags)
-		if job.subscriber.analyzedURLConnected == true {
+		if j.subscriber.analyzedURLConnected == true {
 			urlMap[nurl] = true
 		}
 		var reqMatch = true
 		var followMatch = true
 		var anchorMatch = true
-		if job.callbackUrlRegexp != nil && job.callbackUrlRegexp.MatchString(nurl) == false {
+		if j.callbackURLRegexp != nil && j.callbackURLRegexp.MatchString(nurl) == false {
 			reqMatch = false
 		}
-		if job.followUrlRegexp != nil && job.followUrlRegexp.MatchString(nurl) == false {
+		if j.followURLRegexp != nil && j.followURLRegexp.MatchString(nurl) == false {
 			followMatch = false
 		}
-		if job.anchorTextRegexp != nil && job.anchorTextRegexp.MatchString(anchorText) == false {
+		if j.anchorTextRegexp != nil && j.anchorTextRegexp.MatchString(anchorText) == false {
 			anchorMatch = false
 		}
 		if !reqMatch && !followMatch && !anchorMatch {
 			return
 		}
-		if !job.duplicates[nurl] {
-			if job.opts.SeedUrl != "" && (!job.opts.FollowOtherDomains && u.Hostname() != job.domainname) {
-				job.duplicates[nurl] = true
+		if !j.duplicates[nurl] {
+			if j.opts.SeedUrl != "" && (!j.opts.FollowOtherDomains && u.Hostname() != j.domainname) {
+				j.duplicates[nurl] = true
 				return
 			}
-			parsed_url, err := url.Parse(nurl)
+			parsedURL, err := url.Parse(nurl)
 			if err != nil {
-				job.log.Println(err)
+				j.log.Println(err)
 				return
 
 			}
 
 			cmd := CrawlCommand{
 				method:     SendMethod,
-				url:        parsed_url,
+				url:        parsedURL,
 				metaStr:    ctx.Cmd.(CrawlCommand).MetaStr(),
 				urlDepth:   urlDepth,
 				anchorText: anchorText,
@@ -1316,17 +1253,17 @@ func (job *Job) EnqueueLinks(ctx *fetchbot.Context, doc *goquery.Document, urlDe
 			//	job.log.Println(err)
 			//	return
 			//}
-			job.log.Printf("Enqueueing URL: %s", nurl)
+			j.log.Printf("Enqueueing URL: %s", nurl)
 			if err := ctx.Q.Send(cmd); err != nil {
-				job.log.Println("error: enqueue head %s - %s", nurl, err)
+				j.log.Printf("error: enqueue head %s - %s", nurl, err)
 			} else {
-				job.duplicates[nurl] = true
+				j.duplicates[nurl] = true
 			}
 		}
 	})
-	job.log.Println("Status of analyzed url: ", job.subscriber.analyzedURLConnected)
-	if job.subscriber.analyzedURLConnected == true {
-		if job.subscriber.connected == false {
+	j.log.Println("Status of analyzed url: ", j.subscriber.analyzedURLConnected)
+	if j.subscriber.analyzedURLConnected == true {
+		if j.subscriber.connected == false {
 			return
 		}
 
@@ -1338,18 +1275,18 @@ func (job *Job) EnqueueLinks(ctx *fetchbot.Context, doc *goquery.Document, urlDe
 		urlList.UrlDepth = urlDepth
 
 		select {
-		case <-job.subscriber.stopAnalyzedURLChan:
-			job.subscriber.analyzedURLConnected = false
+		case <-j.subscriber.stopAnalyzedURLChan:
+			j.subscriber.analyzedURLConnected = false
 			return
-		case job.subscriber.analyzedURLChan <- urlList:
+		case j.subscriber.analyzedURLChan <- urlList:
 			return
 		}
 	}
 }
 
-func newServer(newJobChan chan<- NewJob, newSubChan chan<- NewSub) *ideaCrawlerServer {
+func newServer(newJobChan chan<- newJob, newSubChan chan<- newSub) *ideaCrawlerServer {
 	s := new(ideaCrawlerServer)
-	s.jobs = make(map[string]*Job)
+	s.jobs = make(map[string]*job)
 	s.newJobChan = newJobChan
 	s.newSubChan = newSubChan
 	return s
@@ -1384,8 +1321,8 @@ func main() {
 	var opts []grpc.ServerOption
 
 	grpcServer := grpc.NewServer(opts...)
-	newJobChan := make(chan NewJob)
-	newSubChan := make(chan NewSub)
+	newJobChan := make(chan newJob)
+	newSubChan := make(chan newSub)
 	newsrv := newServer(newJobChan, newSubChan)
 	pb.RegisterIdeaCrawlerServer(grpcServer, newsrv)
 	go newsrv.JobManager(newJobChan, newSubChan)

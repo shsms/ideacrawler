@@ -18,7 +18,7 @@ protopy:
 
 build: clean
 	mkdir -p build
-	go build -o build/ideacrawler main.go
+	go build -o build/ideacrawler
 
 buildall: clean proto build
 
