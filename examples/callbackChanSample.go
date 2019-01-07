@@ -20,9 +20,10 @@ package main
 
 import (
 	"fmt"
-	gc "github.com/ideas2it/ideacrawler/goclient"
 	"io/ioutil"
 	"time"
+
+	gc "github.com/ideas2it/ideacrawler/goclient"
 )
 
 func main() {

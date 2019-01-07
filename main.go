@@ -552,6 +552,27 @@ func newServer(newJobChan chan<- newJob, newSubChan chan<- newSub) *ideaCrawlerS
 	return s
 }
 
+func startServer() {
+	socket := fmt.Sprintf("%s:%s", cliParams.ListenAddress, cliParams.ListenPort)
+	lis, err := net.Listen("tcp", socket)
+	if err != nil {
+		log.Printf("failed to listen: %v", err)
+		os.Exit(1)
+	}
+	log.Println("Listening on", socket)
+
+	defer log.Println("Exiting crawler. Bye")
+	var opts []grpc.ServerOption
+
+	grpcServer := grpc.NewServer(opts...)
+	newJobChan := make(chan newJob)
+	newSubChan := make(chan newSub)
+	newsrv := newServer(newJobChan, newSubChan)
+	pb.RegisterIdeaCrawlerServer(grpcServer, newsrv)
+	go newsrv.JobManager(newJobChan, newSubChan)
+	grpcServer.Serve(lis)
+}
+
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	rand.Seed(time.Now().UTC().UnixNano())
@@ -570,21 +591,5 @@ func main() {
 		log.SetOutput(logFP)
 	}
 
-	log.Println(cliParams)
-	lis, err := net.Listen("tcp", fmt.Sprintf("%s:%s", cliParams.ListenAddress, cliParams.ListenPort))
-	if err != nil {
-		log.Printf("failed to listen: %v", err)
-		os.Exit(1)
-	}
-
-	defer fmt.Println("Exiting crawler. Bye")
-	var opts []grpc.ServerOption
-
-	grpcServer := grpc.NewServer(opts...)
-	newJobChan := make(chan newJob)
-	newSubChan := make(chan newSub)
-	newsrv := newServer(newJobChan, newSubChan)
-	pb.RegisterIdeaCrawlerServer(grpcServer, newsrv)
-	go newsrv.JobManager(newJobChan, newSubChan)
-	grpcServer.Serve(lis)
+	startServer()
 }

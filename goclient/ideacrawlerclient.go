@@ -38,6 +38,7 @@ type CrawlJob struct {
 	SeedURL                 string
 	MinDelay                int32
 	MaxDelay                int32
+	MaxIdleTime             int32
 	Follow                  bool
 	CallbackUrlRegexp       string
 	FollowUrlRegexp         string
@@ -278,6 +279,7 @@ func (cj *CrawlJob) Run() {
 		MinDelay:                cj.MinDelay,
 		MaxDelay:                cj.MaxDelay,
 		NoFollow:                !cj.Follow,
+		MaxIdleTime:             cj.MaxIdleTime,
 		CallbackUrlRegexp:       cj.CallbackUrlRegexp,
 		FollowUrlRegexp:         cj.FollowUrlRegexp,
 		CallbackXpathMatch:      cj.CallbackXpathMatch,

@@ -56,8 +56,8 @@ type job struct {
 	registerDoneListener chan chan jobDoneSignal
 	doneChan             chan jobDoneSignal
 	randChan             <-chan int // for random number between min and max norm distributed
-
-	log *log.Logger
+	cl                   *chromeclient.ChromeClient
+	log                  *log.Logger
 }
 
 func (j *job) sendPageHTML(ctx *fetchbot.Context, phtml pb.PageHTML) {
@@ -391,8 +391,8 @@ func (s *ideaCrawlerServer) makeHTTPClientLoginDirect(j *job, networkTransport h
 	var payload = make(url.Values)
 	if j.opts.LoginParseFields == true {
 		afterTime := j.opts.MinDelay
-		if afterTime < 5 {
-			afterTime = 5
+		if afterTime < 1 {
+			afterTime = 1
 		}
 		if j.opts.MaxDelay > j.opts.MinDelay {
 			afterTime = int32(<-j.randChan)
@@ -497,17 +497,16 @@ func (s *ideaCrawlerServer) makeHTTPClientRawChrome(j *job) (fetchbot.Doer, erro
 	if j.opts.ChromeBinary == "" {
 		j.opts.ChromeBinary = "/usr/lib64/chromium-browser/headless_shell"
 	}
-	cl := chromeclient.NewChromeClient(j.opts.ChromeBinary)
+	j.cl = chromeclient.NewChromeClient(j.opts.ChromeBinary)
 	if j.opts.DomLoadTime > 0 {
-		cl.SetDomLoadTime(j.opts.DomLoadTime)
+		j.cl.SetDomLoadTime(j.opts.DomLoadTime)
 	}
-	err := cl.Start()
+	err := j.cl.Start()
 	if err != nil {
 		j.log.Println("Unable to start chrome:", err)
 		return nil, err
 	}
-	defer cl.Stop()
-	return &Doer{cl, j, semaphore.NewWeighted(int64(j.opts.MaxConcurrentRequests)), s}, nil
+	return &Doer{j.cl, j, semaphore.NewWeighted(int64(j.opts.MaxConcurrentRequests)), s}, nil
 }
 
 func (s *ideaCrawlerServer) makeHTTPClientLoginChrome(j *job) (fetchbot.Doer, error) {
@@ -515,21 +514,20 @@ func (s *ideaCrawlerServer) makeHTTPClientLoginChrome(j *job) (fetchbot.Doer, er
 	if j.opts.ChromeBinary == "" {
 		j.opts.ChromeBinary = "/usr/lib64/chromium-browser/headless_shell"
 	}
-	cl := chromeclient.NewChromeClient(j.opts.ChromeBinary)
+	j.cl = chromeclient.NewChromeClient(j.opts.ChromeBinary)
 	if j.opts.DomLoadTime > 0 {
-		cl.SetDomLoadTime(j.opts.DomLoadTime)
+		j.cl.SetDomLoadTime(j.opts.DomLoadTime)
 	}
-	err := cl.Start()
+	err := j.cl.Start()
 	if err != nil {
 		j.log.Println("Unable to start chrome:", err)
 		return nil, err
 	}
-	defer cl.Stop()
 	urlobj, _ := url.Parse(j.opts.LoginUrl)
 	req := &http.Request{
 		URL: urlobj,
 	}
-	loginResp, err := cl.Do(req)
+	loginResp, err := j.cl.Do(req)
 	if err != nil {
 		j.log.Println("Http request to chrome failed:", err)
 		return nil, err
@@ -554,7 +552,7 @@ func (s *ideaCrawlerServer) makeHTTPClientLoginChrome(j *job) (fetchbot.Doer, er
 	loginJsReq := &http.Request{
 		URL: loginjs,
 	}
-	loggedInResp, err := cl.Do(loginJsReq)
+	loggedInResp, err := j.cl.Do(loginJsReq)
 	loggedInBody, err := ioutil.ReadAll(loggedInResp.Body)
 	if cliParams.SaveLoginPages != "" {
 		err := ioutil.WriteFile(path.Join(cliParams.SaveLoginPages, "loggedin.html"), loggedInBody, 0755)
@@ -597,7 +595,7 @@ func (s *ideaCrawlerServer) makeHTTPClientLoginChrome(j *job) (fetchbot.Doer, er
 		j.sendPageHTML(nil, phtml)
 		j.log.Printf("Logged in. Found '%v' in '%v'\n", j.opts.LoginSuccessCheck.Value, j.opts.LoginSuccessCheck.Key)
 	}
-	return &Doer{cl, j, semaphore.NewWeighted(int64(j.opts.MaxConcurrentRequests)), s}, nil
+	return &Doer{j.cl, j, semaphore.NewWeighted(int64(j.opts.MaxConcurrentRequests)), s}, nil
 }
 
 func (s *ideaCrawlerServer) RunJob(subID string, j *job) {
@@ -643,18 +641,22 @@ func (s *ideaCrawlerServer) RunJob(subID string, j *job) {
 		if err != nil {
 			return
 		}
+		defer j.cl.Stop()
 	} else if j.opts.Chrome == true && j.opts.Login == true {
 		f.HttpClient, err = s.makeHTTPClientLoginChrome(j)
 		if err != nil {
 			return
 		}
+		defer j.cl.Stop()
 	}
 
 	f.DisablePoliteness = j.opts.Impolite
 	// minimal crawl delay; actual randomized delay is implemented in IdeaCrawlDoer's Do method.
 	f.CrawlDelay = 50 * time.Millisecond
-	if j.opts.MaxIdleTime < 600 {
+	if j.opts.MaxIdleTime == 0 {
 		f.WorkerIdleTTL = 600 * time.Second
+	} else if j.opts.MaxIdleTime < 10 {
+		f.WorkerIdleTTL = 10 * time.Second
 	} else {
 		f.WorkerIdleTTL = time.Duration(j.opts.MaxIdleTime) * time.Second
 	}

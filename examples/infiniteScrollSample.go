@@ -20,8 +20,9 @@ package main
 
 import (
 	"fmt"
-	"time"
 	"io/ioutil"
+	"time"
+
 	gc "github.com/ideas2it/ideacrawler/goclient"
 )
 
@@ -33,22 +34,22 @@ func main() {
 	z.UsePageChan = true
 
 	// Remove fragments in the crawled urls.
-	z.UnsafeNormalizeURL	= false
-	z.Impolite		= true
-	z.CancelOnDisconnect	= true
-	
+	z.UnsafeNormalizeURL = false
+	z.Impolite = true
+	z.CancelOnDisconnect = true
+
 	// Time delay between each page crawling. Time delay will be randomly generated between MinDelay and MaxDelay(in Seconds).
-	z.MinDelay	= 1
-	z.MaxDelay	= 5
+	z.MinDelay = 1
+	z.MaxDelay = 5
 
 	//Need to enable chrome or not.
-	z.Chrome	= true
 	z.ChromeBinary  = "/bin/chrome"
-	z.SeedURL	= ""
+	z.Chrome = true
+	z.SeedURL = ""
 
 	z.Start()
-	
-	z.AddJS(gc.PageReqType_BUILTINJS,"https://medium.com/topic/technology", "infiniteScrollToEnd", "")
+
+	z.AddJS(gc.PageReqType_BUILTINJS, "https://medium.com/topic/technology", "infiniteScrollToEnd", "")
 	go func() {
 		for {
 			ph := <-z.PageChan
@@ -56,14 +57,14 @@ func main() {
 			// fmt.Println(string(ph.Content))
 			err := ioutil.WriteFile("/tmp/out.file", ph.Content, 0775)
 			if err != nil {
-				fmt.Println("Write failed:",err, "for url:", ph.Url)
+				fmt.Println("Write failed:", err, "for url:", ph.Url)
 			}
 		}
 	}()
-	
+
 	for {
 		if z.IsAlive() {
-			time.Sleep(1*time.Second)
+			time.Sleep(1 * time.Second)
 		} else {
 			break
 		}
