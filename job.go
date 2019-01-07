@@ -30,23 +30,23 @@ import (
 )
 
 type job struct {
-	domainname        string
-	opts              *pb.DomainOpt
-	sub               pb.Subscription
-	prevRun           time.Time
-	nextRun           time.Time
-	frequency         time.Duration
-	runNumber         int32
-	running           bool
-	done              bool
-	seqnum            int32
-	callbackURLRegexp *regexp.Regexp
-	followURLRegexp   *regexp.Regexp
-	anchorTextRegexp  *regexp.Regexp
-	subscriber        *subscriber
-	mu                sync.Mutex
-	duplicates        map[string]bool
-	cancelChan        chan cancelSignal
+	domainname               string
+	opts                     *pb.DomainOpt
+	sub                      pb.Subscription
+	prevRun                  time.Time
+	nextRun                  time.Time
+	frequency                time.Duration
+	runNumber                int32
+	running                  bool
+	done                     bool
+	seqnum                   int32
+	callbackURLRegexp        *regexp.Regexp
+	followURLRegexp          *regexp.Regexp
+	callbackAnchorTextRegexp *regexp.Regexp
+	subscriber               *subscriber
+	mu                       sync.Mutex
+	duplicates               map[string]bool
+	cancelChan               chan cancelSignal
 
 	// there will be a goroutine started inside RunJob that will listen on registerDoneListener for
 	// DoneListeners.  There will be a despatcher goroutine that will forward the doneChan info to
@@ -242,9 +242,9 @@ func (j *job) fetchHTTPGetHandler(ctx *fetchbot.Context, res *http.Response, err
 		callbackPage = true
 	}
 
-	if j.anchorTextRegexp != nil && j.anchorTextRegexp.MatchString(anchorText) == false {
-		j.log.Printf("Anchor Text '%v' did not match anchorTextRegexp '%v'\n", anchorText, j.anchorTextRegexp)
-	} else if j.anchorTextRegexp != nil {
+	if j.callbackAnchorTextRegexp != nil && j.callbackAnchorTextRegexp.MatchString(anchorText) == false {
+		j.log.Printf("Anchor Text '%v' did not match anchorTextRegexp '%v'\n", anchorText, j.callbackAnchorTextRegexp)
+	} else if j.callbackAnchorTextRegexp != nil {
 		callbackPage = true
 	}
 

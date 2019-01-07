@@ -49,11 +49,8 @@ type RemoteObject struct {
 //
 // Note: This type is experimental.
 type CustomPreview struct {
-	Header                     string          `json:"header"`                     // No description.
-	HasBody                    bool            `json:"hasBody"`                    // No description.
-	FormatterObjectID          RemoteObjectID  `json:"formatterObjectId"`          // No description.
-	BindRemoteObjectFunctionID RemoteObjectID  `json:"bindRemoteObjectFunctionId"` // No description.
-	ConfigObjectID             *RemoteObjectID `json:"configObjectId,omitempty"`   // No description.
+	Header       string          `json:"header"`                 // The JSON-stringified result of formatter.header(object, config) call. It contains json ML array that represents RemoteObject.
+	BodyGetterID *RemoteObjectID `json:"bodyGetterId,omitempty"` // If formatter returns true as a result of formatter.hasBody call then bodyGetterId will contain RemoteObjectId for the function that returns result of formatter.body(object, config) call. The result value is json ML array.
 }
 
 // ObjectPreview Object containing abbreviated remote object value.
@@ -165,12 +162,12 @@ func (t Timestamp) String() string {
 	return t.Time().String()
 }
 
-// Time parses the Unix time with millisecond accuracy.
+// Time parses the Unix time.
 func (t Timestamp) Time() time.Time {
-	secs := int64(t)
-	// The Unix time in t only has ms accuracy.
-	ms := int64((float64(t) - float64(secs)) * 1000000)
-	return time.Unix(secs, ms*1000)
+	ts := float64(t) / 1000
+	secs := int64(ts)
+	nsecs := int64((ts - float64(secs)) * 1000000000)
+	return time.Unix(secs, nsecs)
 }
 
 // MarshalJSON implements json.Marshaler. Encodes to null if t is zero.

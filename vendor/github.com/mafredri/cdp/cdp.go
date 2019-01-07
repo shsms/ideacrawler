@@ -42,6 +42,7 @@ import (
 	"github.com/mafredri/cdp/protocol/storage"
 	"github.com/mafredri/cdp/protocol/systeminfo"
 	"github.com/mafredri/cdp/protocol/target"
+	"github.com/mafredri/cdp/protocol/testing"
 	"github.com/mafredri/cdp/protocol/tethering"
 	"github.com/mafredri/cdp/protocol/tracing"
 )
@@ -50,6 +51,18 @@ import (
 //
 // Note: This domain is experimental.
 type Accessibility interface {
+	// Command Disable
+	//
+	// Disables the accessibility domain.
+	Disable(context.Context) error
+
+	// Command Enable
+	//
+	// Enables the accessibility domain which causes `AXNodeId`s to remain
+	// consistent between method calls. This turns on accessibility for the
+	// page, which can impact performance until accessibility is disabled.
+	Enable(context.Context) error
+
 	// Command GetPartialAXTree
 	//
 	// Fetches the accessibility node and partial accessibility tree for
@@ -57,6 +70,13 @@ type Accessibility interface {
 	//
 	// Note: This command is experimental.
 	GetPartialAXTree(context.Context, *accessibility.GetPartialAXTreeArgs) (*accessibility.GetPartialAXTreeReply, error)
+
+	// Command GetFullAXTree
+	//
+	// Fetches the entire accessibility tree
+	//
+	// Note: This command is experimental.
+	GetFullAXTree(context.Context) (*accessibility.GetFullAXTreeReply, error)
 }
 
 // The Animation domain.
@@ -178,10 +198,32 @@ type Audits interface {
 // The Browser domain. The Browser domain defines methods and events for
 // browser managing.
 type Browser interface {
+	// Command GrantPermissions
+	//
+	// Grant specific permissions to the given origin and reject all
+	// others.
+	//
+	// Note: This command is experimental.
+	GrantPermissions(context.Context, *browser.GrantPermissionsArgs) error
+
+	// Command ResetPermissions
+	//
+	// Reset all permission management for all origins.
+	//
+	// Note: This command is experimental.
+	ResetPermissions(context.Context, *browser.ResetPermissionsArgs) error
+
 	// Command Close
 	//
 	// Close browser gracefully.
 	Close(context.Context) error
+
+	// Command Crash
+	//
+	// Crashes browser on the main thread.
+	//
+	// Note: This command is experimental.
+	Crash(context.Context) error
 
 	// Command GetVersion
 	//
@@ -517,6 +559,14 @@ type DOM interface {
 	// Returns boxes for the given node.
 	GetBoxModel(context.Context, *dom.GetBoxModelArgs) (*dom.GetBoxModelReply, error)
 
+	// Command GetContentQuads
+	//
+	// Returns quads that describe node position on the page. This method
+	// might return multiple quads for inline nodes.
+	//
+	// Note: This command is experimental.
+	GetContentQuads(context.Context, *dom.GetContentQuadsArgs) (*dom.GetContentQuadsReply, error)
+
 	// Command GetDocument
 	//
 	// Returns the root DOM node (and optionally the subtree) to the
@@ -531,7 +581,8 @@ type DOM interface {
 
 	// Command GetNodeForLocation
 	//
-	// Returns node id at given location.
+	// Returns node id at given location. Depending on whether DOM domain
+	// is enabled, nodeId is either returned or not.
 	//
 	// Note: This command is experimental.
 	GetNodeForLocation(context.Context, *dom.GetNodeForLocationArgs) (*dom.GetNodeForLocationReply, error)
@@ -586,13 +637,13 @@ type DOM interface {
 	// Note: This command is experimental.
 	PushNodeByPathToFrontend(context.Context, *dom.PushNodeByPathToFrontendArgs) (*dom.PushNodeByPathToFrontendReply, error)
 
-	// Command PushNodesByBackendIdsToFrontend
+	// Command PushNodesByBackendIDsToFrontend
 	//
 	// Requests that a batch of nodes is sent to the caller given their
 	// backend node ids.
 	//
 	// Note: This command is experimental.
-	PushNodesByBackendIdsToFrontend(context.Context, *dom.PushNodesByBackendIdsToFrontendArgs) (*dom.PushNodesByBackendIdsToFrontendReply, error)
+	PushNodesByBackendIDsToFrontend(context.Context, *dom.PushNodesByBackendIDsToFrontendArgs) (*dom.PushNodesByBackendIDsToFrontendReply, error)
 
 	// Command QuerySelector
 	//
@@ -842,14 +893,33 @@ type DOMDebugger interface {
 //
 // Note: This domain is experimental.
 type DOMSnapshot interface {
+	// Command Disable
+	//
+	// Disables DOM snapshot agent for the given page.
+	Disable(context.Context) error
+
+	// Command Enable
+	//
+	// Enables DOM snapshot agent for the given page.
+	Enable(context.Context) error
+
 	// Command GetSnapshot
+	//
+	// Deprecated: Returns a document snapshot, including the full DOM
+	// tree of the root node (including iframes, template contents, and
+	// imported documents) in a flattened array, as well as layout and
+	// white-listed computed style information for the nodes. Shadow DOM in
+	// the returned DOM tree is flattened.
+	GetSnapshot(context.Context, *domsnapshot.GetSnapshotArgs) (*domsnapshot.GetSnapshotReply, error)
+
+	// Command CaptureSnapshot
 	//
 	// Returns a document snapshot, including the full DOM tree of the
 	// root node (including iframes, template contents, and imported
 	// documents) in a flattened array, as well as layout and white-listed
 	// computed style information for the nodes. Shadow DOM in the returned
 	// DOM tree is flattened.
-	GetSnapshot(context.Context, *domsnapshot.GetSnapshotArgs) (*domsnapshot.GetSnapshotReply, error)
+	CaptureSnapshot(context.Context, *domsnapshot.CaptureSnapshotArgs) (*domsnapshot.CaptureSnapshotReply, error)
 }
 
 // The DOMStorage domain. Query and modify DOM storage.
@@ -1175,6 +1245,13 @@ type Emulation interface {
 	// Note: This command is experimental.
 	ResetPageScaleFactor(context.Context) error
 
+	// Command SetFocusEmulationEnabled
+	//
+	// Enables or disables simulating a focused and active page.
+	//
+	// Note: This command is experimental.
+	SetFocusEmulationEnabled(context.Context, *emulation.SetFocusEmulationEnabledArgs) error
+
 	// Command SetCPUThrottlingRate
 	//
 	// Enables CPU throttling to emulate slow CPUs.
@@ -1196,6 +1273,16 @@ type Emulation interface {
 	// media query results).
 	SetDeviceMetricsOverride(context.Context, *emulation.SetDeviceMetricsOverrideArgs) error
 
+	// Command SetScrollbarsHidden
+	//
+	// Note: This command is experimental.
+	SetScrollbarsHidden(context.Context, *emulation.SetScrollbarsHiddenArgs) error
+
+	// Command SetDocumentCookieDisabled
+	//
+	// Note: This command is experimental.
+	SetDocumentCookieDisabled(context.Context, *emulation.SetDocumentCookieDisabledArgs) error
+
 	// Command SetEmitTouchEventsForMouse
 	//
 	// Note: This command is experimental.
@@ -1214,7 +1301,8 @@ type Emulation interface {
 
 	// Command SetNavigatorOverrides
 	//
-	// Overrides value returned by the javascript navigator object.
+	// Deprecated: Overrides value returned by the javascript navigator
+	// object.
 	//
 	// Note: This command is experimental.
 	SetNavigatorOverrides(context.Context, *emulation.SetNavigatorOverridesArgs) error
@@ -1255,6 +1343,11 @@ type Emulation interface {
 	// Note: This command is experimental.
 	SetVisibleSize(context.Context, *emulation.SetVisibleSizeArgs) error
 
+	// Command SetUserAgentOverride
+	//
+	// Allows overriding user agent with the given string.
+	SetUserAgentOverride(context.Context, *emulation.SetUserAgentOverrideArgs) error
+
 	// Event VirtualTimeAdvanced
 	//
 	// Notification sent after the virtual time has advanced.
@@ -1292,13 +1385,6 @@ type HeadlessExperimental interface {
 	// --run-all-compositor-stages-before-draw, see also
 	// https://goo.gl/3zHXhB for more background.
 	BeginFrame(context.Context, *headlessexperimental.BeginFrameArgs) (*headlessexperimental.BeginFrameReply, error)
-
-	// Command EnterDeterministicMode
-	//
-	// Puts the browser into deterministic mode. Only effective for
-	// subsequently created web contents. Only supported in headless mode.
-	// Once set there's no way of leaving deterministic mode.
-	EnterDeterministicMode(context.Context, *headlessexperimental.EnterDeterministicModeArgs) error
 
 	// Command Disable
 	//
@@ -1453,6 +1539,14 @@ type Input interface {
 	//
 	// Dispatches a key event to the page.
 	DispatchKeyEvent(context.Context, *input.DispatchKeyEventArgs) error
+
+	// Command InsertText
+	//
+	// This method emulates inserting text that doesn't come from a key
+	// press, for example an emoji keyboard or an IME.
+	//
+	// Note: This command is experimental.
+	InsertText(context.Context, *input.InsertTextArgs) error
 
 	// Command DispatchMouseEvent
 	//
@@ -1854,11 +1948,6 @@ type Network interface {
 	// Note: This command is experimental.
 	SetRequestInterception(context.Context, *network.SetRequestInterceptionArgs) error
 
-	// Command SetUserAgentOverride
-	//
-	// Allows overriding user agent with the given string.
-	SetUserAgentOverride(context.Context, *network.SetUserAgentOverrideArgs) error
-
 	// Event DataReceived
 	//
 	// Fired when data chunk was received over the network.
@@ -1903,6 +1992,13 @@ type Network interface {
 	//
 	// Note: This event is experimental.
 	ResourceChangedPriority(context.Context) (network.ResourceChangedPriorityClient, error)
+
+	// Event SignedExchangeReceived
+	//
+	// Fired when a signed exchange was received over the network
+	//
+	// Note: This event is experimental.
+	SignedExchangeReceived(context.Context) (network.SignedExchangeReceivedClient, error)
 
 	// Event ResponseReceived
 	//
@@ -2198,6 +2294,20 @@ type Page interface {
 	// Note: This command is experimental.
 	SetBypassCSP(context.Context, *page.SetBypassCSPArgs) error
 
+	// Command SetFontFamilies
+	//
+	// Set generic font families.
+	//
+	// Note: This command is experimental.
+	SetFontFamilies(context.Context, *page.SetFontFamiliesArgs) error
+
+	// Command SetFontSizes
+	//
+	// Set default font sizes.
+	//
+	// Note: This command is experimental.
+	SetFontSizes(context.Context, *page.SetFontSizesArgs) error
+
 	// Command SetDocumentContent
 	//
 	// Sets given markup as the document's HTML.
@@ -2258,6 +2368,36 @@ type Page interface {
 	//
 	// Note: This command is experimental.
 	StopScreencast(context.Context) error
+
+	// Command SetProduceCompilationCache
+	//
+	// Forces compilation cache to be generated for every subresource
+	// script.
+	//
+	// Note: This command is experimental.
+	SetProduceCompilationCache(context.Context, *page.SetProduceCompilationCacheArgs) error
+
+	// Command AddCompilationCache
+	//
+	// Seeds compilation cache for given url. Compilation cache does not
+	// survive cross-process navigation.
+	//
+	// Note: This command is experimental.
+	AddCompilationCache(context.Context, *page.AddCompilationCacheArgs) error
+
+	// Command ClearCompilationCache
+	//
+	// Clears seeded compilation cache.
+	//
+	// Note: This command is experimental.
+	ClearCompilationCache(context.Context) error
+
+	// Command GenerateTestReport
+	//
+	// Generates a report for testing.
+	//
+	// Note: This command is experimental.
+	GenerateTestReport(context.Context, *page.GenerateTestReportArgs) error
 
 	// Event DOMContentEventFired
 	DOMContentEventFired(context.Context) (page.DOMContentEventFiredClient, error)
@@ -2370,6 +2510,14 @@ type Page interface {
 	// Fired when a new window is going to be opened, via window.open(),
 	// link click, form submission, etc.
 	WindowOpen(context.Context) (page.WindowOpenClient, error)
+
+	// Event CompilationCacheProduced
+	//
+	// Issued for every compilation cache generated. Is only available if
+	// Page.setGenerateCompilationCache is enabled.
+	//
+	// Note: This event is experimental.
+	CompilationCacheProduced(context.Context) (page.CompilationCacheProducedClient, error)
 }
 
 // The Performance domain.
@@ -2383,6 +2531,16 @@ type Performance interface {
 	//
 	// Enable collecting and reporting metrics.
 	Enable(context.Context) error
+
+	// Command SetTimeDomain
+	//
+	// Sets time domain to use for collecting and reporting duration
+	// metrics. Note that this must be called before enabling metrics
+	// collection. Calling this method while metrics collection is enabled
+	// returns an error.
+	//
+	// Note: This command is experimental.
+	SetTimeDomain(context.Context, *performance.SetTimeDomainArgs) error
 
 	// Command GetMetrics
 	//
@@ -2572,6 +2730,11 @@ type Runtime interface {
 	// Note: This command is experimental.
 	SetCustomObjectFormatterEnabled(context.Context, *runtime.SetCustomObjectFormatterEnabledArgs) error
 
+	// Command SetMaxCallStackSizeToCapture
+	//
+	// Note: This command is experimental.
+	SetMaxCallStackSizeToCapture(context.Context, *runtime.SetMaxCallStackSizeToCaptureArgs) error
+
 	// Command TerminateExecution
 	//
 	// Terminate current or next JavaScript execution. Will cancel the
@@ -2579,6 +2742,36 @@ type Runtime interface {
 	//
 	// Note: This command is experimental.
 	TerminateExecution(context.Context) error
+
+	// Command AddBinding
+	//
+	// If executionContextId is empty, adds binding with the given name on
+	// the global objects of all inspected contexts, including those
+	// created later, bindings survive reloads. If executionContextId is
+	// specified, adds binding only on global object of given execution
+	// context. Binding function takes exactly one argument, this argument
+	// should be string, in case of any other input, function throws an
+	// exception. Each binding function call produces Runtime.bindingCalled
+	// notification.
+	//
+	// Note: This command is experimental.
+	AddBinding(context.Context, *runtime.AddBindingArgs) error
+
+	// Command RemoveBinding
+	//
+	// This method does not remove binding function from global object but
+	// unsubscribes current runtime agent from Runtime.bindingCalled
+	// notifications.
+	//
+	// Note: This command is experimental.
+	RemoveBinding(context.Context, *runtime.RemoveBindingArgs) error
+
+	// Event BindingCalled
+	//
+	// Notification is issued every time when binding is called.
+	//
+	// Note: This event is experimental.
+	BindingCalled(context.Context) (runtime.BindingCalledClient, error)
 
 	// Event ConsoleAPICalled
 	//
@@ -2806,10 +2999,32 @@ type Target interface {
 	// Attaches to the target with given id.
 	AttachToTarget(context.Context, *target.AttachToTargetArgs) (*target.AttachToTargetReply, error)
 
+	// Command AttachToBrowserTarget
+	//
+	// Attaches to the browser target, only uses flat sessionId mode.
+	//
+	// Note: This command is experimental.
+	AttachToBrowserTarget(context.Context) (*target.AttachToBrowserTargetReply, error)
+
 	// Command CloseTarget
 	//
 	// Closes the target. If the target is a page that gets closed too.
 	CloseTarget(context.Context, *target.CloseTargetArgs) (*target.CloseTargetReply, error)
+
+	// Command ExposeDevToolsProtocol
+	//
+	// Inject object to the target's main frame that provides a
+	// communication channel with browser target.
+	//
+	// Injected object will be available as `window[bindingName]`.
+	//
+	// The object has the follwing API: - `binding.send(json)` - a method
+	// to send messages over the remote debugging protocol -
+	// `binding.onmessage = json => handleMessage(json)` - a callback that
+	// will be called for the protocol notifications and command responses.
+	//
+	// Note: This command is experimental.
+	ExposeDevToolsProtocol(context.Context, *target.ExposeDevToolsProtocolArgs) error
 
 	// Command CreateBrowserContext
 	//
@@ -2818,6 +3033,14 @@ type Target interface {
 	//
 	// Note: This command is experimental.
 	CreateBrowserContext(context.Context) (*target.CreateBrowserContextReply, error)
+
+	// Command GetBrowserContexts
+	//
+	// Returns all browser contexts created with
+	// `Target.createBrowserContext` method.
+	//
+	// Note: This command is experimental.
+	GetBrowserContexts(context.Context) (*target.GetBrowserContextsReply, error)
 
 	// Command CreateTarget
 	//
@@ -2831,10 +3054,11 @@ type Target interface {
 
 	// Command DisposeBrowserContext
 	//
-	// Deletes a BrowserContext, will fail of any open page uses it.
+	// Deletes a BrowserContext. All the belonging pages will be closed
+	// without calling their beforeunload hooks.
 	//
 	// Note: This command is experimental.
-	DisposeBrowserContext(context.Context, *target.DisposeBrowserContextArgs) (*target.DisposeBrowserContextReply, error)
+	DisposeBrowserContext(context.Context, *target.DisposeBrowserContextArgs) error
 
 	// Command GetTargetInfo
 	//
@@ -2910,11 +3134,27 @@ type Target interface {
 	// Issued when a target is destroyed.
 	TargetDestroyed(context.Context) (target.DestroyedClient, error)
 
+	// Event TargetCrashed
+	//
+	// Issued when a target has crashed.
+	TargetCrashed(context.Context) (target.CrashedClient, error)
+
 	// Event TargetInfoChanged
 	//
 	// Issued when some information about a target has changed. This only
 	// happens between `targetCreated` and `targetDestroyed`.
 	TargetInfoChanged(context.Context) (target.InfoChangedClient, error)
+}
+
+// The Testing domain. Testing domain is a dumping ground for the capabilities
+// requires for browser or app testing that do not fit other domains.
+//
+// Note: This domain is experimental.
+type Testing interface {
+	// Command GenerateTestReport
+	//
+	// Generates a report for testing.
+	GenerateTestReport(context.Context, *testing.GenerateTestReportArgs) error
 }
 
 // The Tethering domain. The Tethering domain defines methods and events for

@@ -3,6 +3,7 @@
 package dom
 
 import (
+	"github.com/mafredri/cdp/protocol/internal"
 	"github.com/mafredri/cdp/protocol/runtime"
 )
 
@@ -213,6 +214,46 @@ type GetBoxModelReply struct {
 	Model BoxModel `json:"model"` // Box model for the node.
 }
 
+// GetContentQuadsArgs represents the arguments for GetContentQuads in the DOM domain.
+type GetContentQuadsArgs struct {
+	NodeID        *NodeID                 `json:"nodeId,omitempty"`        // Identifier of the node.
+	BackendNodeID *BackendNodeID          `json:"backendNodeId,omitempty"` // Identifier of the backend node.
+	ObjectID      *runtime.RemoteObjectID `json:"objectId,omitempty"`      // JavaScript object id of the node wrapper.
+}
+
+// NewGetContentQuadsArgs initializes GetContentQuadsArgs with the required arguments.
+func NewGetContentQuadsArgs() *GetContentQuadsArgs {
+	args := new(GetContentQuadsArgs)
+
+	return args
+}
+
+// SetNodeID sets the NodeID optional argument. Identifier of the
+// node.
+func (a *GetContentQuadsArgs) SetNodeID(nodeID NodeID) *GetContentQuadsArgs {
+	a.NodeID = &nodeID
+	return a
+}
+
+// SetBackendNodeID sets the BackendNodeID optional argument.
+// Identifier of the backend node.
+func (a *GetContentQuadsArgs) SetBackendNodeID(backendNodeID BackendNodeID) *GetContentQuadsArgs {
+	a.BackendNodeID = &backendNodeID
+	return a
+}
+
+// SetObjectID sets the ObjectID optional argument. JavaScript object
+// id of the node wrapper.
+func (a *GetContentQuadsArgs) SetObjectID(objectID runtime.RemoteObjectID) *GetContentQuadsArgs {
+	a.ObjectID = &objectID
+	return a
+}
+
+// GetContentQuadsReply represents the return values for GetContentQuads in the DOM domain.
+type GetContentQuadsReply struct {
+	Quads []Quad `json:"quads"` // Quads that describe node layout relative to viewport.
+}
+
 // GetDocumentArgs represents the arguments for GetDocument in the DOM domain.
 type GetDocumentArgs struct {
 	Depth  *int  `json:"depth,omitempty"`  // The maximum depth at which children should be retrieved, defaults to 1. Use -1 for the entire subtree or provide an integer larger than 0.
@@ -306,7 +347,8 @@ func (a *GetNodeForLocationArgs) SetIncludeUserAgentShadowDOM(includeUserAgentSh
 
 // GetNodeForLocationReply represents the return values for GetNodeForLocation in the DOM domain.
 type GetNodeForLocationReply struct {
-	NodeID NodeID `json:"nodeId"` // Id of the node at given coordinates.
+	BackendNodeID BackendNodeID `json:"backendNodeId"`    // Resulting node.
+	NodeID        *NodeID       `json:"nodeId,omitempty"` // Id of the node at given coordinates, only when enabled.
 }
 
 // GetOuterHTMLArgs represents the arguments for GetOuterHTML in the DOM domain.
@@ -458,20 +500,20 @@ type PushNodeByPathToFrontendReply struct {
 	NodeID NodeID `json:"nodeId"` // Id of the node for given path.
 }
 
-// PushNodesByBackendIdsToFrontendArgs represents the arguments for PushNodesByBackendIdsToFrontend in the DOM domain.
-type PushNodesByBackendIdsToFrontendArgs struct {
+// PushNodesByBackendIDsToFrontendArgs represents the arguments for PushNodesByBackendIDsToFrontend in the DOM domain.
+type PushNodesByBackendIDsToFrontendArgs struct {
 	BackendNodeIDs []BackendNodeID `json:"backendNodeIds"` // The array of backend node ids.
 }
 
-// NewPushNodesByBackendIdsToFrontendArgs initializes PushNodesByBackendIdsToFrontendArgs with the required arguments.
-func NewPushNodesByBackendIdsToFrontendArgs(backendNodeIDs []BackendNodeID) *PushNodesByBackendIdsToFrontendArgs {
-	args := new(PushNodesByBackendIdsToFrontendArgs)
+// NewPushNodesByBackendIDsToFrontendArgs initializes PushNodesByBackendIDsToFrontendArgs with the required arguments.
+func NewPushNodesByBackendIDsToFrontendArgs(backendNodeIDs []BackendNodeID) *PushNodesByBackendIDsToFrontendArgs {
+	args := new(PushNodesByBackendIDsToFrontendArgs)
 	args.BackendNodeIDs = backendNodeIDs
 	return args
 }
 
-// PushNodesByBackendIdsToFrontendReply represents the return values for PushNodesByBackendIdsToFrontend in the DOM domain.
-type PushNodesByBackendIdsToFrontendReply struct {
+// PushNodesByBackendIDsToFrontendReply represents the return values for PushNodesByBackendIDsToFrontend in the DOM domain.
+type PushNodesByBackendIDsToFrontendReply struct {
 	NodeIDs []NodeID `json:"nodeIds"` // The array of ids of pushed nodes that correspond to the backend ids specified in backendNodeIds.
 }
 
@@ -760,7 +802,20 @@ func NewSetOuterHTMLArgs(nodeID NodeID, outerHTML string) *SetOuterHTMLArgs {
 	return args
 }
 
+// GetFrameOwnerArgs represents the arguments for GetFrameOwner in the DOM domain.
+type GetFrameOwnerArgs struct {
+	FrameID internal.PageFrameID `json:"frameId"` // No description.
+}
+
+// NewGetFrameOwnerArgs initializes GetFrameOwnerArgs with the required arguments.
+func NewGetFrameOwnerArgs(frameID internal.PageFrameID) *GetFrameOwnerArgs {
+	args := new(GetFrameOwnerArgs)
+	args.FrameID = frameID
+	return args
+}
+
 // GetFrameOwnerReply represents the return values for GetFrameOwner in the DOM domain.
 type GetFrameOwnerReply struct {
-	NodeID NodeID `json:"nodeId"` // No description.
+	BackendNodeID BackendNodeID `json:"backendNodeId"`    // Resulting node.
+	NodeID        *NodeID       `json:"nodeId,omitempty"` // Id of the node at given coordinates, only when enabled.
 }

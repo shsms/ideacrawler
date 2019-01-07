@@ -40,12 +40,13 @@ import (
 	"github.com/mafredri/cdp/protocol/storage"
 	"github.com/mafredri/cdp/protocol/systeminfo"
 	"github.com/mafredri/cdp/protocol/target"
+	"github.com/mafredri/cdp/protocol/testing"
 	"github.com/mafredri/cdp/protocol/tethering"
 	"github.com/mafredri/cdp/protocol/tracing"
 	"github.com/mafredri/cdp/rpcc"
 )
 
-// Client represents a Chrome Debugging Protocol client that can be used to
+// Client represents a Chrome DevTools Protocol client that can be used to
 // invoke methods or listen to events in every CDP domain. The Client consumes
 // a rpcc connection, used to invoke the methods.
 type Client struct {
@@ -86,6 +87,7 @@ type Client struct {
 	Storage              Storage
 	SystemInfo           SystemInfo
 	Target               Target
+	Testing              Testing
 	Tethering            Tethering
 	Tracing              Tracing
 }
@@ -131,6 +133,7 @@ func NewClient(conn *rpcc.Conn) *Client {
 		Storage:              storage.NewClient(conn),
 		SystemInfo:           systeminfo.NewClient(conn),
 		Target:               target.NewClient(conn),
+		Testing:              testing.NewClient(conn),
 		Tethering:            tethering.NewClient(conn),
 		Tracing:              tracing.NewClient(conn),
 	}

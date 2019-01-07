@@ -392,20 +392,6 @@ func (d *domainClient) SetRequestInterception(ctx context.Context, args *SetRequ
 	return
 }
 
-// SetUserAgentOverride invokes the Network method. Allows overriding user
-// agent with the given string.
-func (d *domainClient) SetUserAgentOverride(ctx context.Context, args *SetUserAgentOverrideArgs) (err error) {
-	if args != nil {
-		err = rpcc.Invoke(ctx, "Network.setUserAgentOverride", args, nil, d.conn)
-	} else {
-		err = rpcc.Invoke(ctx, "Network.setUserAgentOverride", nil, nil, d.conn)
-	}
-	if err != nil {
-		err = &internal.OpError{Domain: "Network", Op: "SetUserAgentOverride", Err: err}
-	}
-	return
-}
-
 func (d *domainClient) DataReceived(ctx context.Context) (DataReceivedClient, error) {
 	s, err := rpcc.NewStream(ctx, "Network.dataReceived", d.conn)
 	if err != nil {
@@ -570,6 +556,27 @@ func (c *resourceChangedPriorityClient) Recv() (*ResourceChangedPriorityReply, e
 	event := new(ResourceChangedPriorityReply)
 	if err := c.RecvMsg(event); err != nil {
 		return nil, &internal.OpError{Domain: "Network", Op: "ResourceChangedPriority Recv", Err: err}
+	}
+	return event, nil
+}
+
+func (d *domainClient) SignedExchangeReceived(ctx context.Context) (SignedExchangeReceivedClient, error) {
+	s, err := rpcc.NewStream(ctx, "Network.signedExchangeReceived", d.conn)
+	if err != nil {
+		return nil, err
+	}
+	return &signedExchangeReceivedClient{Stream: s}, nil
+}
+
+type signedExchangeReceivedClient struct{ rpcc.Stream }
+
+// GetStream returns the original Stream for use with cdp.Sync.
+func (c *signedExchangeReceivedClient) GetStream() rpcc.Stream { return c.Stream }
+
+func (c *signedExchangeReceivedClient) Recv() (*SignedExchangeReceivedReply, error) {
+	event := new(SignedExchangeReceivedReply)
+	if err := c.RecvMsg(event); err != nil {
+		return nil, &internal.OpError{Domain: "Network", Op: "SignedExchangeReceived Recv", Err: err}
 	}
 	return event, nil
 }

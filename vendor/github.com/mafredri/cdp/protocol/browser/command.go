@@ -6,6 +6,49 @@ import (
 	"github.com/mafredri/cdp/protocol/target"
 )
 
+// GrantPermissionsArgs represents the arguments for GrantPermissions in the Browser domain.
+type GrantPermissionsArgs struct {
+	Origin           string                   `json:"origin"`                     // No description.
+	Permissions      []PermissionType         `json:"permissions"`                // No description.
+	BrowserContextID *target.BrowserContextID `json:"browserContextId,omitempty"` // BrowserContext to override permissions. When omitted, default browser context is used.
+}
+
+// NewGrantPermissionsArgs initializes GrantPermissionsArgs with the required arguments.
+func NewGrantPermissionsArgs(origin string, permissions []PermissionType) *GrantPermissionsArgs {
+	args := new(GrantPermissionsArgs)
+	args.Origin = origin
+	args.Permissions = permissions
+	return args
+}
+
+// SetBrowserContextID sets the BrowserContextID optional argument.
+// BrowserContext to override permissions. When omitted, default
+// browser context is used.
+func (a *GrantPermissionsArgs) SetBrowserContextID(browserContextID target.BrowserContextID) *GrantPermissionsArgs {
+	a.BrowserContextID = &browserContextID
+	return a
+}
+
+// ResetPermissionsArgs represents the arguments for ResetPermissions in the Browser domain.
+type ResetPermissionsArgs struct {
+	BrowserContextID *target.BrowserContextID `json:"browserContextId,omitempty"` // BrowserContext to reset permissions. When omitted, default browser context is used.
+}
+
+// NewResetPermissionsArgs initializes ResetPermissionsArgs with the required arguments.
+func NewResetPermissionsArgs() *ResetPermissionsArgs {
+	args := new(ResetPermissionsArgs)
+
+	return args
+}
+
+// SetBrowserContextID sets the BrowserContextID optional argument.
+// BrowserContext to reset permissions. When omitted, default browser
+// context is used.
+func (a *ResetPermissionsArgs) SetBrowserContextID(browserContextID target.BrowserContextID) *ResetPermissionsArgs {
+	a.BrowserContextID = &browserContextID
+	return a
+}
+
 // GetVersionReply represents the return values for GetVersion in the Browser domain.
 type GetVersionReply struct {
 	ProtocolVersion string `json:"protocolVersion"` // Protocol version.
@@ -23,6 +66,7 @@ type GetBrowserCommandLineReply struct {
 // GetHistogramsArgs represents the arguments for GetHistograms in the Browser domain.
 type GetHistogramsArgs struct {
 	Query *string `json:"query,omitempty"` // Requested substring in name. Only histograms which have query as a substring in their name are extracted. An empty or absent query returns all histograms.
+	Delta *bool   `json:"delta,omitempty"` // If true, retrieve delta since last call.
 }
 
 // NewGetHistogramsArgs initializes GetHistogramsArgs with the required arguments.
@@ -40,6 +84,13 @@ func (a *GetHistogramsArgs) SetQuery(query string) *GetHistogramsArgs {
 	return a
 }
 
+// SetDelta sets the Delta optional argument. If true, retrieve delta
+// since last call.
+func (a *GetHistogramsArgs) SetDelta(delta bool) *GetHistogramsArgs {
+	a.Delta = &delta
+	return a
+}
+
 // GetHistogramsReply represents the return values for GetHistograms in the Browser domain.
 type GetHistogramsReply struct {
 	Histograms []Histogram `json:"histograms"` // Histograms.
@@ -47,7 +98,8 @@ type GetHistogramsReply struct {
 
 // GetHistogramArgs represents the arguments for GetHistogram in the Browser domain.
 type GetHistogramArgs struct {
-	Name string `json:"name"` // Requested histogram name.
+	Name  string `json:"name"`            // Requested histogram name.
+	Delta *bool  `json:"delta,omitempty"` // If true, retrieve delta since last call.
 }
 
 // NewGetHistogramArgs initializes GetHistogramArgs with the required arguments.
@@ -55,6 +107,13 @@ func NewGetHistogramArgs(name string) *GetHistogramArgs {
 	args := new(GetHistogramArgs)
 	args.Name = name
 	return args
+}
+
+// SetDelta sets the Delta optional argument. If true, retrieve delta
+// since last call.
+func (a *GetHistogramArgs) SetDelta(delta bool) *GetHistogramArgs {
+	a.Delta = &delta
+	return a
 }
 
 // GetHistogramReply represents the return values for GetHistogram in the Browser domain.

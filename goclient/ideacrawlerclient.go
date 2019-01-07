@@ -35,40 +35,40 @@ import (
 type PageHTML = pb.PageHTML
 
 type CrawlJob struct {
-	SeedURL                 string
-	MinDelay                int32
-	MaxDelay                int32
-	MaxIdleTime             int32
-	Follow                  bool
-	CallbackUrlRegexp       string
-	FollowUrlRegexp         string
-	CallbackXpathMatch      []*pb.KVP
-	CallbackXpathRegexp     []*pb.KVP
-	MaxConcurrentRequests   int32
-	Useragent               string
-	Impolite                bool
-	Depth                   int32
-	Repeat                  bool
-	Frequency               *google_protobuf1.Duration
-	Firstrun                *google_protobuf.Timestamp
-	UnsafeNormalizeURL      bool
-	Login                   bool
-	LoginUrl                string
-	LoginJS                 string
-	LoginPayload            []*pb.KVP
-	LoginParseFields        bool
-	LoginParseXpath         []*pb.KVP
-	LoginSuccessCheck       *pb.KVP
-	CheckLoginAfterEachPage bool
-	Chrome                  bool
-	ChromeBinary            string
-	DomLoadTime             int32
-	NetworkIface            string
-	CancelOnDisconnect      bool
-	CheckContent            bool
-	Prefetch                bool
-	AnchorTextRegexp        string
-	CleanUpFunc             func()
+	SeedURL                  string
+	MinDelay                 int32
+	MaxDelay                 int32
+	MaxIdleTime              int32
+	Follow                   bool
+	CallbackUrlRegexp        string
+	FollowUrlRegexp          string
+	CallbackXpathMatch       []*pb.KVP
+	CallbackXpathRegexp      []*pb.KVP
+	MaxConcurrentRequests    int32
+	Useragent                string
+	Impolite                 bool
+	Depth                    int32
+	Repeat                   bool
+	Frequency                *google_protobuf1.Duration
+	Firstrun                 *google_protobuf.Timestamp
+	UnsafeNormalizeURL       bool
+	Login                    bool
+	LoginUrl                 string
+	LoginJS                  string
+	LoginPayload             []*pb.KVP
+	LoginParseFields         bool
+	LoginParseXpath          []*pb.KVP
+	LoginSuccessCheck        *pb.KVP
+	CheckLoginAfterEachPage  bool
+	Chrome                   bool
+	ChromeBinary             string
+	DomLoadTime              int32
+	NetworkIface             string
+	CancelOnDisconnect       bool
+	CheckContent             bool
+	Prefetch                 bool
+	CallbackAnchorTextRegexp string
+	CleanUpFunc              func()
 
 	dopt           *pb.DomainOpt
 	svrHost        string
@@ -115,17 +115,17 @@ func (cj *CrawlJob) SetLogin(loginUrl string, loginPayload, loginParseXpath KVMa
 	cj.Login = true
 	cj.LoginUrl = loginUrl
 	for k, v := range loginPayload {
-		cj.LoginPayload = append(cj.LoginPayload, &pb.KVP{k, v})
+		cj.LoginPayload = append(cj.LoginPayload, &pb.KVP{Key: k, Value: v})
 	}
 	if len(loginParseXpath) > 0 {
 		cj.LoginParseFields = true
 	}
 	for k, v := range loginParseXpath {
-		cj.LoginParseXpath = append(cj.LoginParseXpath, &pb.KVP{k, v})
+		cj.LoginParseXpath = append(cj.LoginParseXpath, &pb.KVP{Key: k, Value: v})
 	}
 
 	for k, v := range loginSuccessCheck {
-		cj.LoginSuccessCheck = &pb.KVP{k, v}
+		cj.LoginSuccessCheck = &pb.KVP{Key: k, Value: v}
 	}
 }
 
@@ -134,19 +134,19 @@ func (cj *CrawlJob) SetLoginChrome(loginUrl string, loginJS string, loginSuccess
 	cj.LoginUrl = loginUrl
 	cj.LoginJS = loginJS
 	for k, v := range loginSuccessCheck {
-		cj.LoginSuccessCheck = &pb.KVP{k, v}
+		cj.LoginSuccessCheck = &pb.KVP{Key: k, Value: v}
 	}
 }
 
 func (cj *CrawlJob) SetCallbackXpathMatch(mdata KVMap) {
 	for k, v := range mdata {
-		cj.CallbackXpathMatch = append(cj.CallbackXpathMatch, &pb.KVP{k, v})
+		cj.CallbackXpathMatch = append(cj.CallbackXpathMatch, &pb.KVP{Key: k, Value: v})
 	}
 }
 
 func (cj *CrawlJob) SetCallbackXpathRegexp(mdata KVMap) {
 	for k, v := range mdata {
-		cj.CallbackXpathRegexp = append(cj.CallbackXpathRegexp, &pb.KVP{k, v})
+		cj.CallbackXpathRegexp = append(cj.CallbackXpathRegexp, &pb.KVP{Key: k, Value: v})
 	}
 }
 
@@ -275,40 +275,40 @@ func (cj *CrawlJob) Run() {
 	cj.client = pb.NewIdeaCrawlerClient(conn)
 
 	cj.dopt = &pb.DomainOpt{
-		SeedUrl:                 cj.SeedURL,
-		MinDelay:                cj.MinDelay,
-		MaxDelay:                cj.MaxDelay,
-		NoFollow:                !cj.Follow,
-		MaxIdleTime:             cj.MaxIdleTime,
-		CallbackUrlRegexp:       cj.CallbackUrlRegexp,
-		FollowUrlRegexp:         cj.FollowUrlRegexp,
-		CallbackXpathMatch:      cj.CallbackXpathMatch,
-		CallbackXpathRegexp:     cj.CallbackXpathRegexp,
-		MaxConcurrentRequests:   cj.MaxConcurrentRequests,
-		Useragent:               cj.Useragent,
-		Impolite:                cj.Impolite,
-		Depth:                   cj.Depth,
-		Repeat:                  cj.Repeat,
-		Frequency:               cj.Frequency,
-		Firstrun:                cj.Firstrun,
-		UnsafeNormalizeURL:      cj.UnsafeNormalizeURL,
-		Login:                   cj.Login,
-		LoginUrl:                cj.LoginUrl,
-		LoginJS:                 cj.LoginJS,
-		LoginPayload:            cj.LoginPayload,
-		LoginParseFields:        cj.LoginParseFields,
-		LoginParseXpath:         cj.LoginParseXpath,
-		LoginSuccessCheck:       cj.LoginSuccessCheck,
-		CheckLoginAfterEachPage: cj.CheckLoginAfterEachPage,
-		Chrome:                  cj.Chrome,
-		ChromeBinary:            cj.ChromeBinary,
-		DomLoadTime:             cj.DomLoadTime,
-		NetworkIface:            cj.NetworkIface,
-		CancelOnDisconnect:      cj.CancelOnDisconnect,
-		CheckContent:            cj.CheckContent,
-		Prefetch:                cj.Prefetch,
-		AnchorTextRegexp:        cj.AnchorTextRegexp,
-		CallbackSeedUrl:         cj.CallbackSeedUrl,
+		SeedUrl:                  cj.SeedURL,
+		MinDelay:                 cj.MinDelay,
+		MaxDelay:                 cj.MaxDelay,
+		NoFollow:                 !cj.Follow,
+		MaxIdleTime:              cj.MaxIdleTime,
+		CallbackUrlRegexp:        cj.CallbackUrlRegexp,
+		FollowUrlRegexp:          cj.FollowUrlRegexp,
+		CallbackXpathMatch:       cj.CallbackXpathMatch,
+		CallbackXpathRegexp:      cj.CallbackXpathRegexp,
+		MaxConcurrentRequests:    cj.MaxConcurrentRequests,
+		Useragent:                cj.Useragent,
+		Impolite:                 cj.Impolite,
+		Depth:                    cj.Depth,
+		Repeat:                   cj.Repeat,
+		Frequency:                cj.Frequency,
+		Firstrun:                 cj.Firstrun,
+		UnsafeNormalizeURL:       cj.UnsafeNormalizeURL,
+		Login:                    cj.Login,
+		LoginUrl:                 cj.LoginUrl,
+		LoginJS:                  cj.LoginJS,
+		LoginPayload:             cj.LoginPayload,
+		LoginParseFields:         cj.LoginParseFields,
+		LoginParseXpath:          cj.LoginParseXpath,
+		LoginSuccessCheck:        cj.LoginSuccessCheck,
+		CheckLoginAfterEachPage:  cj.CheckLoginAfterEachPage,
+		Chrome:                   cj.Chrome,
+		ChromeBinary:             cj.ChromeBinary,
+		DomLoadTime:              cj.DomLoadTime,
+		NetworkIface:             cj.NetworkIface,
+		CancelOnDisconnect:       cj.CancelOnDisconnect,
+		CheckContent:             cj.CheckContent,
+		Prefetch:                 cj.Prefetch,
+		CallbackAnchorTextRegexp: cj.CallbackAnchorTextRegexp,
+		CallbackSeedUrl:          cj.CallbackSeedUrl,
 	}
 	pagestream, err := cj.client.AddDomainAndListen(context.Background(), cj.dopt, grpc.MaxCallRecvMsgSize((2*1024*1024*1024)-1))
 	if err != nil {

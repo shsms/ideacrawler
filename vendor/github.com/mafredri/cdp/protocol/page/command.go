@@ -5,6 +5,7 @@ package page
 import (
 	"github.com/mafredri/cdp/protocol/debugger"
 	"github.com/mafredri/cdp/protocol/dom"
+	"github.com/mafredri/cdp/protocol/network"
 	"github.com/mafredri/cdp/protocol/runtime"
 )
 
@@ -28,6 +29,13 @@ type AddScriptToEvaluateOnLoadReply struct {
 // AddScriptToEvaluateOnNewDocumentArgs represents the arguments for AddScriptToEvaluateOnNewDocument in the Page domain.
 type AddScriptToEvaluateOnNewDocumentArgs struct {
 	Source string `json:"source"` // No description.
+	// WorldName If specified, creates an isolated world with the given
+	// name and evaluates given script in it. This world name will be used
+	// as the ExecutionContextDescription::name when the corresponding
+	// event is emitted.
+	//
+	// Note: This property is experimental.
+	WorldName *string `json:"worldName,omitempty"`
 }
 
 // NewAddScriptToEvaluateOnNewDocumentArgs initializes AddScriptToEvaluateOnNewDocumentArgs with the required arguments.
@@ -35,6 +43,18 @@ func NewAddScriptToEvaluateOnNewDocumentArgs(source string) *AddScriptToEvaluate
 	args := new(AddScriptToEvaluateOnNewDocumentArgs)
 	args.Source = source
 	return args
+}
+
+// SetWorldName sets the WorldName optional argument. If specified,
+// creates an isolated world with the given name and evaluates given
+// script in it. This world name will be used as the
+// ExecutionContextDescription::name when the corresponding event is
+// emitted.
+//
+// Note: This property is experimental.
+func (a *AddScriptToEvaluateOnNewDocumentArgs) SetWorldName(worldName string) *AddScriptToEvaluateOnNewDocumentArgs {
+	a.WorldName = &worldName
+	return a
 }
 
 // AddScriptToEvaluateOnNewDocumentReply represents the return values for AddScriptToEvaluateOnNewDocument in the Page domain.
@@ -101,6 +121,35 @@ type CaptureScreenshotReply struct {
 	Data []byte `json:"data"` // Base64-encoded image data.
 }
 
+// CreateIsolatedWorldArgs represents the arguments for CreateIsolatedWorld in the Page domain.
+type CreateIsolatedWorldArgs struct {
+	FrameID             FrameID `json:"frameId"`                       // Id of the frame in which the isolated world should be created.
+	WorldName           *string `json:"worldName,omitempty"`           // An optional name which is reported in the Execution Context.
+	GrantUniveralAccess *bool   `json:"grantUniveralAccess,omitempty"` // Whether or not universal access should be granted to the isolated world. This is a powerful option, use with caution.
+}
+
+// NewCreateIsolatedWorldArgs initializes CreateIsolatedWorldArgs with the required arguments.
+func NewCreateIsolatedWorldArgs(frameID FrameID) *CreateIsolatedWorldArgs {
+	args := new(CreateIsolatedWorldArgs)
+	args.FrameID = frameID
+	return args
+}
+
+// SetWorldName sets the WorldName optional argument. An optional name
+// which is reported in the Execution Context.
+func (a *CreateIsolatedWorldArgs) SetWorldName(worldName string) *CreateIsolatedWorldArgs {
+	a.WorldName = &worldName
+	return a
+}
+
+// SetGrantUniveralAccess sets the GrantUniveralAccess optional argument.
+// Whether or not universal access should be granted to the isolated
+// world. This is a powerful option, use with caution.
+func (a *CreateIsolatedWorldArgs) SetGrantUniveralAccess(grantUniveralAccess bool) *CreateIsolatedWorldArgs {
+	a.GrantUniveralAccess = &grantUniveralAccess
+	return a
+}
+
 // CreateIsolatedWorldReply represents the return values for CreateIsolatedWorld in the Page domain.
 type CreateIsolatedWorldReply struct {
 	ExecutionContextID runtime.ExecutionContextID `json:"executionContextId"` // Execution context of the isolated world.
@@ -129,6 +178,20 @@ type GetLayoutMetricsReply struct {
 type GetNavigationHistoryReply struct {
 	CurrentIndex int               `json:"currentIndex"` // Index of the current navigation history entry.
 	Entries      []NavigationEntry `json:"entries"`      // Array of navigation history entries.
+}
+
+// GetResourceContentArgs represents the arguments for GetResourceContent in the Page domain.
+type GetResourceContentArgs struct {
+	FrameID FrameID `json:"frameId"` // Frame id to get resource for.
+	URL     string  `json:"url"`     // URL of the resource to get content for.
+}
+
+// NewGetResourceContentArgs initializes GetResourceContentArgs with the required arguments.
+func NewGetResourceContentArgs(frameID FrameID, url string) *GetResourceContentArgs {
+	args := new(GetResourceContentArgs)
+	args.FrameID = frameID
+	args.URL = url
+	return args
 }
 
 // GetResourceContentReply represents the return values for GetResourceContent in the Page domain.
@@ -161,6 +224,48 @@ func NewHandleJavaScriptDialogArgs(accept bool) *HandleJavaScriptDialogArgs {
 func (a *HandleJavaScriptDialogArgs) SetPromptText(promptText string) *HandleJavaScriptDialogArgs {
 	a.PromptText = &promptText
 	return a
+}
+
+// NavigateArgs represents the arguments for Navigate in the Page domain.
+type NavigateArgs struct {
+	URL            string         `json:"url"`                      // URL to navigate the page to.
+	Referrer       *string        `json:"referrer,omitempty"`       // Referrer URL.
+	TransitionType TransitionType `json:"transitionType,omitempty"` // Intended transition type.
+	FrameID        *FrameID       `json:"frameId,omitempty"`        // Frame id to navigate, if not specified navigates the top frame.
+}
+
+// NewNavigateArgs initializes NavigateArgs with the required arguments.
+func NewNavigateArgs(url string) *NavigateArgs {
+	args := new(NavigateArgs)
+	args.URL = url
+	return args
+}
+
+// SetReferrer sets the Referrer optional argument. Referrer URL.
+func (a *NavigateArgs) SetReferrer(referrer string) *NavigateArgs {
+	a.Referrer = &referrer
+	return a
+}
+
+// SetTransitionType sets the TransitionType optional argument.
+// Intended transition type.
+func (a *NavigateArgs) SetTransitionType(transitionType TransitionType) *NavigateArgs {
+	a.TransitionType = transitionType
+	return a
+}
+
+// SetFrameID sets the FrameID optional argument. Frame id to
+// navigate, if not specified navigates the top frame.
+func (a *NavigateArgs) SetFrameID(frameID FrameID) *NavigateArgs {
+	a.FrameID = &frameID
+	return a
+}
+
+// NavigateReply represents the return values for Navigate in the Page domain.
+type NavigateReply struct {
+	FrameID   FrameID           `json:"frameId"`             // Frame id that has navigated (or failed to navigate)
+	LoaderID  *network.LoaderID `json:"loaderId,omitempty"`  // Loader identifier.
+	ErrorText *string           `json:"errorText,omitempty"` // User friendly error message, present if and only if navigation has failed.
 }
 
 // NavigateToHistoryEntryArgs represents the arguments for NavigateToHistoryEntry in the Page domain.
@@ -388,6 +493,38 @@ func NewScreencastFrameAckArgs(sessionID int) *ScreencastFrameAckArgs {
 	return args
 }
 
+// SearchInResourceArgs represents the arguments for SearchInResource in the Page domain.
+type SearchInResourceArgs struct {
+	FrameID       FrameID `json:"frameId"`                 // Frame id for resource to search in.
+	URL           string  `json:"url"`                     // URL of the resource to search in.
+	Query         string  `json:"query"`                   // String to search for.
+	CaseSensitive *bool   `json:"caseSensitive,omitempty"` // If true, search is case sensitive.
+	IsRegex       *bool   `json:"isRegex,omitempty"`       // If true, treats string parameter as regex.
+}
+
+// NewSearchInResourceArgs initializes SearchInResourceArgs with the required arguments.
+func NewSearchInResourceArgs(frameID FrameID, url string, query string) *SearchInResourceArgs {
+	args := new(SearchInResourceArgs)
+	args.FrameID = frameID
+	args.URL = url
+	args.Query = query
+	return args
+}
+
+// SetCaseSensitive sets the CaseSensitive optional argument. If true,
+// search is case sensitive.
+func (a *SearchInResourceArgs) SetCaseSensitive(caseSensitive bool) *SearchInResourceArgs {
+	a.CaseSensitive = &caseSensitive
+	return a
+}
+
+// SetIsRegex sets the IsRegex optional argument. If true, treats
+// string parameter as regex.
+func (a *SearchInResourceArgs) SetIsRegex(isRegex bool) *SearchInResourceArgs {
+	a.IsRegex = &isRegex
+	return a
+}
+
 // SearchInResourceReply represents the return values for SearchInResource in the Page domain.
 type SearchInResourceReply struct {
 	Result []debugger.SearchMatch `json:"result"` // List of search matches.
@@ -414,6 +551,44 @@ type SetBypassCSPArgs struct {
 func NewSetBypassCSPArgs(enabled bool) *SetBypassCSPArgs {
 	args := new(SetBypassCSPArgs)
 	args.Enabled = enabled
+	return args
+}
+
+// SetFontFamiliesArgs represents the arguments for SetFontFamilies in the Page domain.
+type SetFontFamiliesArgs struct {
+	FontFamilies FontFamilies `json:"fontFamilies"` // Specifies font families to set. If a font family is not specified, it won't be changed.
+}
+
+// NewSetFontFamiliesArgs initializes SetFontFamiliesArgs with the required arguments.
+func NewSetFontFamiliesArgs(fontFamilies FontFamilies) *SetFontFamiliesArgs {
+	args := new(SetFontFamiliesArgs)
+	args.FontFamilies = fontFamilies
+	return args
+}
+
+// SetFontSizesArgs represents the arguments for SetFontSizes in the Page domain.
+type SetFontSizesArgs struct {
+	FontSizes FontSizes `json:"fontSizes"` // Specifies font sizes to set. If a font size is not specified, it won't be changed.
+}
+
+// NewSetFontSizesArgs initializes SetFontSizesArgs with the required arguments.
+func NewSetFontSizesArgs(fontSizes FontSizes) *SetFontSizesArgs {
+	args := new(SetFontSizesArgs)
+	args.FontSizes = fontSizes
+	return args
+}
+
+// SetDocumentContentArgs represents the arguments for SetDocumentContent in the Page domain.
+type SetDocumentContentArgs struct {
+	FrameID FrameID `json:"frameId"` // Frame id to set HTML for.
+	HTML    string  `json:"html"`    // HTML content to set.
+}
+
+// NewSetDocumentContentArgs initializes SetDocumentContentArgs with the required arguments.
+func NewSetDocumentContentArgs(frameID FrameID, html string) *SetDocumentContentArgs {
+	args := new(SetDocumentContentArgs)
+	args.FrameID = frameID
+	args.HTML = html
 	return args
 }
 
@@ -523,4 +698,50 @@ func NewSetWebLifecycleStateArgs(state string) *SetWebLifecycleStateArgs {
 	args := new(SetWebLifecycleStateArgs)
 	args.State = state
 	return args
+}
+
+// SetProduceCompilationCacheArgs represents the arguments for SetProduceCompilationCache in the Page domain.
+type SetProduceCompilationCacheArgs struct {
+	Enabled bool `json:"enabled"` // No description.
+}
+
+// NewSetProduceCompilationCacheArgs initializes SetProduceCompilationCacheArgs with the required arguments.
+func NewSetProduceCompilationCacheArgs(enabled bool) *SetProduceCompilationCacheArgs {
+	args := new(SetProduceCompilationCacheArgs)
+	args.Enabled = enabled
+	return args
+}
+
+// AddCompilationCacheArgs represents the arguments for AddCompilationCache in the Page domain.
+type AddCompilationCacheArgs struct {
+	URL  string `json:"url"`  // No description.
+	Data []byte `json:"data"` // Base64-encoded data
+}
+
+// NewAddCompilationCacheArgs initializes AddCompilationCacheArgs with the required arguments.
+func NewAddCompilationCacheArgs(url string, data []byte) *AddCompilationCacheArgs {
+	args := new(AddCompilationCacheArgs)
+	args.URL = url
+	args.Data = data
+	return args
+}
+
+// GenerateTestReportArgs represents the arguments for GenerateTestReport in the Page domain.
+type GenerateTestReportArgs struct {
+	Message string  `json:"message"`         // Message to be displayed in the report.
+	Group   *string `json:"group,omitempty"` // Specifies the endpoint group to deliver the report to.
+}
+
+// NewGenerateTestReportArgs initializes GenerateTestReportArgs with the required arguments.
+func NewGenerateTestReportArgs(message string) *GenerateTestReportArgs {
+	args := new(GenerateTestReportArgs)
+	args.Message = message
+	return args
+}
+
+// SetGroup sets the Group optional argument. Specifies the endpoint
+// group to deliver the report to.
+func (a *GenerateTestReportArgs) SetGroup(group string) *GenerateTestReportArgs {
+	a.Group = &group
+	return a
 }

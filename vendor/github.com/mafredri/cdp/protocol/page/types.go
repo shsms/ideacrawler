@@ -3,8 +3,46 @@
 package page
 
 import (
+	"github.com/mafredri/cdp/protocol/internal"
 	"github.com/mafredri/cdp/protocol/network"
 )
+
+// FrameID Unique frame identifier.
+//
+// Provided as an alias to prevent circular dependencies.
+type FrameID = internal.PageFrameID
+
+// FrameID Unique frame identifier.
+//type FrameID string
+
+// Frame Information about the Frame on the page.
+type Frame struct {
+	ID             FrameID          `json:"id"`                 // Frame unique identifier.
+	ParentID       *FrameID         `json:"parentId,omitempty"` // Parent frame identifier.
+	LoaderID       network.LoaderID `json:"loaderId"`           // Identifier of the loader associated with this frame.
+	Name           *string          `json:"name,omitempty"`     // Frame's name as specified in the tag.
+	URL            string           `json:"url"`                // Frame document's URL.
+	SecurityOrigin string           `json:"securityOrigin"`     // Frame document's security origin.
+	MimeType       string           `json:"mimeType"`           // Frame document's mimeType as determined by the browser.
+	// UnreachableURL If the frame failed to load, this contains the URL
+	// that could not be loaded.
+	//
+	// Note: This property is experimental.
+	UnreachableURL *string `json:"unreachableUrl,omitempty"`
+}
+
+// FrameResource Information about the Resource on the page.
+//
+// Note: This type is experimental.
+type FrameResource struct {
+	URL          string                 `json:"url"`                    // Resource URL.
+	Type         network.ResourceType   `json:"type"`                   // Type of this resource.
+	MimeType     string                 `json:"mimeType"`               // Resource mimeType as determined by the browser.
+	LastModified network.TimeSinceEpoch `json:"lastModified,omitempty"` // last-modified timestamp as reported by server.
+	ContentSize  *float64               `json:"contentSize,omitempty"`  // Resource content size.
+	Failed       *bool                  `json:"failed,omitempty"`       // True if the resource failed to load.
+	Canceled     *bool                  `json:"canceled,omitempty"`     // True if the resource was canceled during loading.
+}
 
 // FrameResourceTree Information about the Frame hierarchy along with their
 // cached resources.
@@ -33,6 +71,7 @@ const (
 	TransitionTypeNotSet           TransitionType = ""
 	TransitionTypeLink             TransitionType = "link"
 	TransitionTypeTyped            TransitionType = "typed"
+	TransitionTypeAddressBar       TransitionType = "address_bar"
 	TransitionTypeAutoBookmark     TransitionType = "auto_bookmark"
 	TransitionTypeAutoSubframe     TransitionType = "auto_subframe"
 	TransitionTypeManualSubframe   TransitionType = "manual_subframe"
@@ -47,7 +86,7 @@ const (
 
 func (e TransitionType) Valid() bool {
 	switch e {
-	case "link", "typed", "auto_bookmark", "auto_subframe", "manual_subframe", "generated", "auto_toplevel", "form_submit", "reload", "keyword", "keyword_generated", "other":
+	case "link", "typed", "address_bar", "auto_bookmark", "auto_subframe", "manual_subframe", "generated", "auto_toplevel", "form_submit", "reload", "keyword", "keyword_generated", "other":
 		return true
 	default:
 		return false
@@ -139,4 +178,25 @@ type Viewport struct {
 	Width  float64 `json:"width"`  // Rectangle width in CSS pixels
 	Height float64 `json:"height"` // Rectangle height in CSS pixels
 	Scale  float64 `json:"scale"`  // Page scale factor.
+}
+
+// FontFamilies Generic font families collection.
+//
+// Note: This type is experimental.
+type FontFamilies struct {
+	Standard   *string `json:"standard,omitempty"`   // The standard font-family.
+	Fixed      *string `json:"fixed,omitempty"`      // The fixed font-family.
+	Serif      *string `json:"serif,omitempty"`      // The serif font-family.
+	SansSerif  *string `json:"sansSerif,omitempty"`  // The sansSerif font-family.
+	Cursive    *string `json:"cursive,omitempty"`    // The cursive font-family.
+	Fantasy    *string `json:"fantasy,omitempty"`    // The fantasy font-family.
+	Pictograph *string `json:"pictograph,omitempty"` // The pictograph font-family.
+}
+
+// FontSizes Default font sizes.
+//
+// Note: This type is experimental.
+type FontSizes struct {
+	Standard *int `json:"standard,omitempty"` // Default standard font size.
+	Fixed    *int `json:"fixed,omitempty"`    // Default fixed font size.
 }

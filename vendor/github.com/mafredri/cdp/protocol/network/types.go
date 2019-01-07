@@ -11,6 +11,43 @@ import (
 	"github.com/mafredri/cdp/protocol/security"
 )
 
+// ResourceType Resource type as it was perceived by the rendering engine.
+type ResourceType string
+
+// ResourceType as enums.
+const (
+	ResourceTypeNotSet             ResourceType = ""
+	ResourceTypeDocument           ResourceType = "Document"
+	ResourceTypeStylesheet         ResourceType = "Stylesheet"
+	ResourceTypeImage              ResourceType = "Image"
+	ResourceTypeMedia              ResourceType = "Media"
+	ResourceTypeFont               ResourceType = "Font"
+	ResourceTypeScript             ResourceType = "Script"
+	ResourceTypeTextTrack          ResourceType = "TextTrack"
+	ResourceTypeXHR                ResourceType = "XHR"
+	ResourceTypeFetch              ResourceType = "Fetch"
+	ResourceTypeEventSource        ResourceType = "EventSource"
+	ResourceTypeWebSocket          ResourceType = "WebSocket"
+	ResourceTypeManifest           ResourceType = "Manifest"
+	ResourceTypeSignedExchange     ResourceType = "SignedExchange"
+	ResourceTypePing               ResourceType = "Ping"
+	ResourceTypeCSPViolationReport ResourceType = "CSPViolationReport"
+	ResourceTypeOther              ResourceType = "Other"
+)
+
+func (e ResourceType) Valid() bool {
+	switch e {
+	case "Document", "Stylesheet", "Image", "Media", "Font", "Script", "TextTrack", "XHR", "Fetch", "EventSource", "WebSocket", "Manifest", "SignedExchange", "Ping", "CSPViolationReport", "Other":
+		return true
+	default:
+		return false
+	}
+}
+
+func (e ResourceType) String() string {
+	return string(e)
+}
+
 // LoaderID Unique loader identifier.
 type LoaderID string
 
@@ -38,11 +75,13 @@ const (
 	ErrorReasonNameNotResolved      ErrorReason = "NameNotResolved"
 	ErrorReasonInternetDisconnected ErrorReason = "InternetDisconnected"
 	ErrorReasonAddressUnreachable   ErrorReason = "AddressUnreachable"
+	ErrorReasonBlockedByClient      ErrorReason = "BlockedByClient"
+	ErrorReasonBlockedByResponse    ErrorReason = "BlockedByResponse"
 )
 
 func (e ErrorReason) Valid() bool {
 	switch e {
-	case "Failed", "Aborted", "TimedOut", "AccessDenied", "ConnectionClosed", "ConnectionReset", "ConnectionRefused", "ConnectionAborted", "ConnectionFailed", "NameNotResolved", "InternetDisconnected", "AddressUnreachable":
+	case "Failed", "Aborted", "TimedOut", "AccessDenied", "ConnectionClosed", "ConnectionReset", "ConnectionRefused", "ConnectionAborted", "ConnectionFailed", "NameNotResolved", "InternetDisconnected", "AddressUnreachable", "BlockedByClient", "BlockedByResponse":
 		return true
 	default:
 		return false
@@ -61,12 +100,12 @@ func (t TimeSinceEpoch) String() string {
 	return t.Time().String()
 }
 
-// Time parses the Unix time with millisecond accuracy.
+// Time parses the Unix time.
 func (t TimeSinceEpoch) Time() time.Time {
-	secs := int64(t)
-	// The Unix time in t only has ms accuracy.
-	ms := int64((float64(t) - float64(secs)) * 1000000)
-	return time.Unix(secs, ms*1000)
+	ts := float64(t) / 1
+	secs := int64(ts)
+	nsecs := int64((ts - float64(secs)) * 1000000000)
+	return time.Unix(secs, nsecs)
 }
 
 // MarshalJSON implements json.Marshaler. Encodes to null if t is zero.
@@ -104,12 +143,12 @@ func (t MonotonicTime) String() string {
 	return t.Time().String()
 }
 
-// Time parses the Unix time with millisecond accuracy.
+// Time parses the Unix time.
 func (t MonotonicTime) Time() time.Time {
-	secs := int64(t)
-	// The Unix time in t only has ms accuracy.
-	ms := int64((float64(t) - float64(secs)) * 1000000)
-	return time.Unix(secs, ms*1000)
+	ts := float64(t) / 1
+	secs := int64(ts)
+	nsecs := int64((ts - float64(secs)) * 1000000000)
+	return time.Unix(secs, nsecs)
 }
 
 // MarshalJSON implements json.Marshaler. Encodes to null if t is zero.
@@ -276,7 +315,8 @@ func (e ResourcePriority) String() string {
 
 // Request HTTP request data.
 type Request struct {
-	URL              string                     `json:"url"`                        // Request URL.
+	URL              string                     `json:"url"`                        // Request URL (without fragment).
+	URLFragment      *string                    `json:"urlFragment,omitempty"`      // Fragment of the requested URL starting with hash, if present.
 	Method           string                     `json:"method"`                     // HTTP request method.
 	Headers          Headers                    `json:"headers"`                    // HTTP request headers.
 	PostData         *string                    `json:"postData,omitempty"`         // HTTP POST request data.
@@ -351,17 +391,19 @@ type BlockedReason string
 // BlockedReason as enums.
 const (
 	BlockedReasonNotSet            BlockedReason = ""
+	BlockedReasonOther             BlockedReason = "other"
 	BlockedReasonCsp               BlockedReason = "csp"
 	BlockedReasonMixedContent      BlockedReason = "mixed-content"
 	BlockedReasonOrigin            BlockedReason = "origin"
 	BlockedReasonInspector         BlockedReason = "inspector"
 	BlockedReasonSubresourceFilter BlockedReason = "subresource-filter"
-	BlockedReasonOther             BlockedReason = "other"
+	BlockedReasonContentType       BlockedReason = "content-type"
+	BlockedReasonCollapsedByClient BlockedReason = "collapsed-by-client"
 )
 
 func (e BlockedReason) Valid() bool {
 	switch e {
-	case "csp", "mixed-content", "origin", "inspector", "subresource-filter", "other":
+	case "other", "csp", "mixed-content", "origin", "inspector", "subresource-filter", "content-type", "collapsed-by-client":
 		return true
 	default:
 		return false
@@ -417,14 +459,22 @@ type WebSocketFrame struct {
 	PayloadData string  `json:"payloadData"` // WebSocke frame payload data.
 }
 
+// CachedResource Information about the cached resource.
+type CachedResource struct {
+	URL      string       `json:"url"`                // Resource URL. This is the url of the original network request.
+	Type     ResourceType `json:"type"`               // Type of this resource.
+	Response *Response    `json:"response,omitempty"` // Cached response data.
+	BodySize float64      `json:"bodySize"`           // Cached response body size.
+}
+
 // Initiator Information about the request initiator.
 type Initiator struct {
 	// Type Type of this initiator.
 	//
-	// Values: "parser", "script", "preload", "other".
+	// Values: "parser", "script", "preload", "SignedExchange", "other".
 	Type       string              `json:"type"`
 	Stack      *runtime.StackTrace `json:"stack,omitempty"`      // Initiator JavaScript stack trace, set for Script only.
-	URL        *string             `json:"url,omitempty"`        // Initiator URL, set for Parser type or for Script type (when script is importing module).
+	URL        *string             `json:"url,omitempty"`        // Initiator URL, set for Parser type or for Script type (when script is importing module) or for SignedExchange type.
 	LineNumber *float64            `json:"lineNumber,omitempty"` // Initiator line number, set for Parser type or for Script type (when script is importing module) (0-based).
 }
 
@@ -508,4 +558,89 @@ func (e InterceptionStage) Valid() bool {
 
 func (e InterceptionStage) String() string {
 	return string(e)
+}
+
+// RequestPattern Request pattern for interception.
+//
+// Note: This type is experimental.
+type RequestPattern struct {
+	URLPattern        *string           `json:"urlPattern,omitempty"`        // Wildcards ('*' -> zero or more, '?' -> exactly one) are allowed. Escape character is backslash. Omitting is equivalent to "*".
+	ResourceType      ResourceType      `json:"resourceType,omitempty"`      // If set, only requests for matching resource types will be intercepted.
+	InterceptionStage InterceptionStage `json:"interceptionStage,omitempty"` // Stage at which to begin intercepting requests. Default is Request.
+}
+
+// SignedExchangeSignature Information about a signed exchange signature.
+// https://wicg.github.io/webpackage/draft-yasskin-httpbis-origin-signed-exchanges-impl.html#rfc.section.3.1
+//
+// Note: This type is experimental.
+type SignedExchangeSignature struct {
+	Label        string   `json:"label"`                  // Signed exchange signature label.
+	Signature    string   `json:"signature"`              // The hex string of signed exchange signature.
+	Integrity    string   `json:"integrity"`              // Signed exchange signature integrity.
+	CertURL      *string  `json:"certUrl,omitempty"`      // Signed exchange signature cert Url.
+	CertSha256   *string  `json:"certSha256,omitempty"`   // The hex string of signed exchange signature cert sha256.
+	ValidityURL  string   `json:"validityUrl"`            // Signed exchange signature validity Url.
+	Date         int      `json:"date"`                   // Signed exchange signature date.
+	Expires      int      `json:"expires"`                // Signed exchange signature expires.
+	Certificates []string `json:"certificates,omitempty"` // The encoded certificates.
+}
+
+// SignedExchangeHeader Information about a signed exchange header.
+// https://wicg.github.io/webpackage/draft-yasskin-httpbis-origin-signed-exchanges-impl.html#cbor-representation
+//
+// Note: This type is experimental.
+type SignedExchangeHeader struct {
+	RequestURL      string                    `json:"requestUrl"`      // Signed exchange request URL.
+	RequestMethod   string                    `json:"requestMethod"`   // Signed exchange request method.
+	ResponseCode    int                       `json:"responseCode"`    // Signed exchange response code.
+	ResponseHeaders Headers                   `json:"responseHeaders"` // Signed exchange response headers.
+	Signatures      []SignedExchangeSignature `json:"signatures"`      // Signed exchange response signature.
+}
+
+// SignedExchangeErrorField Field type for a signed exchange related error.
+//
+// Note: This type is experimental.
+type SignedExchangeErrorField string
+
+// SignedExchangeErrorField as enums.
+const (
+	SignedExchangeErrorFieldNotSet               SignedExchangeErrorField = ""
+	SignedExchangeErrorFieldSignatureSig         SignedExchangeErrorField = "signatureSig"
+	SignedExchangeErrorFieldSignatureIntegrity   SignedExchangeErrorField = "signatureIntegrity"
+	SignedExchangeErrorFieldSignatureCertURL     SignedExchangeErrorField = "signatureCertUrl"
+	SignedExchangeErrorFieldSignatureCertSha256  SignedExchangeErrorField = "signatureCertSha256"
+	SignedExchangeErrorFieldSignatureValidityURL SignedExchangeErrorField = "signatureValidityUrl"
+	SignedExchangeErrorFieldSignatureTimestamps  SignedExchangeErrorField = "signatureTimestamps"
+)
+
+func (e SignedExchangeErrorField) Valid() bool {
+	switch e {
+	case "signatureSig", "signatureIntegrity", "signatureCertUrl", "signatureCertSha256", "signatureValidityUrl", "signatureTimestamps":
+		return true
+	default:
+		return false
+	}
+}
+
+func (e SignedExchangeErrorField) String() string {
+	return string(e)
+}
+
+// SignedExchangeError Information about a signed exchange response.
+//
+// Note: This type is experimental.
+type SignedExchangeError struct {
+	Message        string                   `json:"message"`                  // Error message.
+	SignatureIndex *int                     `json:"signatureIndex,omitempty"` // The index of the signature which caused the error.
+	ErrorField     SignedExchangeErrorField `json:"errorField,omitempty"`     // The field which caused the error.
+}
+
+// SignedExchangeInfo Information about a signed exchange response.
+//
+// Note: This type is experimental.
+type SignedExchangeInfo struct {
+	OuterResponse   Response              `json:"outerResponse"`             // The outer response of signed HTTP exchange which was received from network.
+	Header          *SignedExchangeHeader `json:"header,omitempty"`          // Information about the signed exchange header.
+	SecurityDetails *SecurityDetails      `json:"securityDetails,omitempty"` // Security details for the signed exchange header.
+	Errors          []SignedExchangeError `json:"errors,omitempty"`          // Errors occurred while handling the signed exchagne.
 }

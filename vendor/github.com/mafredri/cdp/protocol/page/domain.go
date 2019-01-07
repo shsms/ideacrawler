@@ -338,6 +338,32 @@ func (d *domainClient) SetBypassCSP(ctx context.Context, args *SetBypassCSPArgs)
 	return
 }
 
+// SetFontFamilies invokes the Page method. Set generic font families.
+func (d *domainClient) SetFontFamilies(ctx context.Context, args *SetFontFamiliesArgs) (err error) {
+	if args != nil {
+		err = rpcc.Invoke(ctx, "Page.setFontFamilies", args, nil, d.conn)
+	} else {
+		err = rpcc.Invoke(ctx, "Page.setFontFamilies", nil, nil, d.conn)
+	}
+	if err != nil {
+		err = &internal.OpError{Domain: "Page", Op: "SetFontFamilies", Err: err}
+	}
+	return
+}
+
+// SetFontSizes invokes the Page method. Set default font sizes.
+func (d *domainClient) SetFontSizes(ctx context.Context, args *SetFontSizesArgs) (err error) {
+	if args != nil {
+		err = rpcc.Invoke(ctx, "Page.setFontSizes", args, nil, d.conn)
+	} else {
+		err = rpcc.Invoke(ctx, "Page.setFontSizes", nil, nil, d.conn)
+	}
+	if err != nil {
+		err = &internal.OpError{Domain: "Page", Op: "SetFontSizes", Err: err}
+	}
+	return
+}
+
 // SetDocumentContent invokes the Page method. Sets given markup as the
 // document's HTML.
 func (d *domainClient) SetDocumentContent(ctx context.Context, args *SetDocumentContentArgs) (err error) {
@@ -445,6 +471,57 @@ func (d *domainClient) StopScreencast(ctx context.Context) (err error) {
 	err = rpcc.Invoke(ctx, "Page.stopScreencast", nil, nil, d.conn)
 	if err != nil {
 		err = &internal.OpError{Domain: "Page", Op: "StopScreencast", Err: err}
+	}
+	return
+}
+
+// SetProduceCompilationCache invokes the Page method. Forces compilation
+// cache to be generated for every subresource script.
+func (d *domainClient) SetProduceCompilationCache(ctx context.Context, args *SetProduceCompilationCacheArgs) (err error) {
+	if args != nil {
+		err = rpcc.Invoke(ctx, "Page.setProduceCompilationCache", args, nil, d.conn)
+	} else {
+		err = rpcc.Invoke(ctx, "Page.setProduceCompilationCache", nil, nil, d.conn)
+	}
+	if err != nil {
+		err = &internal.OpError{Domain: "Page", Op: "SetProduceCompilationCache", Err: err}
+	}
+	return
+}
+
+// AddCompilationCache invokes the Page method. Seeds compilation cache for
+// given url. Compilation cache does not survive cross-process navigation.
+func (d *domainClient) AddCompilationCache(ctx context.Context, args *AddCompilationCacheArgs) (err error) {
+	if args != nil {
+		err = rpcc.Invoke(ctx, "Page.addCompilationCache", args, nil, d.conn)
+	} else {
+		err = rpcc.Invoke(ctx, "Page.addCompilationCache", nil, nil, d.conn)
+	}
+	if err != nil {
+		err = &internal.OpError{Domain: "Page", Op: "AddCompilationCache", Err: err}
+	}
+	return
+}
+
+// ClearCompilationCache invokes the Page method. Clears seeded compilation
+// cache.
+func (d *domainClient) ClearCompilationCache(ctx context.Context) (err error) {
+	err = rpcc.Invoke(ctx, "Page.clearCompilationCache", nil, nil, d.conn)
+	if err != nil {
+		err = &internal.OpError{Domain: "Page", Op: "ClearCompilationCache", Err: err}
+	}
+	return
+}
+
+// GenerateTestReport invokes the Page method. Generates a report for testing.
+func (d *domainClient) GenerateTestReport(ctx context.Context, args *GenerateTestReportArgs) (err error) {
+	if args != nil {
+		err = rpcc.Invoke(ctx, "Page.generateTestReport", args, nil, d.conn)
+	} else {
+		err = rpcc.Invoke(ctx, "Page.generateTestReport", nil, nil, d.conn)
+	}
+	if err != nil {
+		err = &internal.OpError{Domain: "Page", Op: "GenerateTestReport", Err: err}
 	}
 	return
 }
@@ -844,6 +921,27 @@ func (c *windowOpenClient) Recv() (*WindowOpenReply, error) {
 	event := new(WindowOpenReply)
 	if err := c.RecvMsg(event); err != nil {
 		return nil, &internal.OpError{Domain: "Page", Op: "WindowOpen Recv", Err: err}
+	}
+	return event, nil
+}
+
+func (d *domainClient) CompilationCacheProduced(ctx context.Context) (CompilationCacheProducedClient, error) {
+	s, err := rpcc.NewStream(ctx, "Page.compilationCacheProduced", d.conn)
+	if err != nil {
+		return nil, err
+	}
+	return &compilationCacheProducedClient{Stream: s}, nil
+}
+
+type compilationCacheProducedClient struct{ rpcc.Stream }
+
+// GetStream returns the original Stream for use with cdp.Sync.
+func (c *compilationCacheProducedClient) GetStream() rpcc.Stream { return c.Stream }
+
+func (c *compilationCacheProducedClient) Recv() (*CompilationCacheProducedReply, error) {
+	event := new(CompilationCacheProducedReply)
+	if err := c.RecvMsg(event); err != nil {
+		return nil, &internal.OpError{Domain: "Page", Op: "CompilationCacheProduced Recv", Err: err}
 	}
 	return event, nil
 }

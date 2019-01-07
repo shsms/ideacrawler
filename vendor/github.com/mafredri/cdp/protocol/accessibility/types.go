@@ -21,7 +21,7 @@ const (
 	AXValueTypeTristate           AXValueType = "tristate"
 	AXValueTypeBooleanOrUndefined AXValueType = "booleanOrUndefined"
 	AXValueTypeIDRef              AXValueType = "idref"
-	AXValueTypeIdrefList          AXValueType = "idrefList"
+	AXValueTypeIDRefList          AXValueType = "idrefList"
 	AXValueTypeInteger            AXValueType = "integer"
 	AXValueTypeNode               AXValueType = "node"
 	AXValueTypeNodeList           AXValueType = "nodeList"
@@ -153,17 +153,21 @@ const (
 	AXPropertyNameNotSet           AXPropertyName = ""
 	AXPropertyNameBusy             AXPropertyName = "busy"
 	AXPropertyNameDisabled         AXPropertyName = "disabled"
+	AXPropertyNameEditable         AXPropertyName = "editable"
+	AXPropertyNameFocusable        AXPropertyName = "focusable"
+	AXPropertyNameFocused          AXPropertyName = "focused"
 	AXPropertyNameHidden           AXPropertyName = "hidden"
 	AXPropertyNameHiddenRoot       AXPropertyName = "hiddenRoot"
 	AXPropertyNameInvalid          AXPropertyName = "invalid"
 	AXPropertyNameKeyshortcuts     AXPropertyName = "keyshortcuts"
+	AXPropertyNameSettable         AXPropertyName = "settable"
 	AXPropertyNameRoledescription  AXPropertyName = "roledescription"
 	AXPropertyNameLive             AXPropertyName = "live"
 	AXPropertyNameAtomic           AXPropertyName = "atomic"
 	AXPropertyNameRelevant         AXPropertyName = "relevant"
 	AXPropertyNameRoot             AXPropertyName = "root"
 	AXPropertyNameAutocomplete     AXPropertyName = "autocomplete"
-	AXPropertyNameHaspopup         AXPropertyName = "haspopup"
+	AXPropertyNameHasPopup         AXPropertyName = "hasPopup"
 	AXPropertyNameLevel            AXPropertyName = "level"
 	AXPropertyNameMultiselectable  AXPropertyName = "multiselectable"
 	AXPropertyNameOrientation      AXPropertyName = "orientation"
@@ -190,7 +194,7 @@ const (
 
 func (e AXPropertyName) Valid() bool {
 	switch e {
-	case "busy", "disabled", "hidden", "hiddenRoot", "invalid", "keyshortcuts", "roledescription", "live", "atomic", "relevant", "root", "autocomplete", "haspopup", "level", "multiselectable", "orientation", "multiline", "readonly", "required", "valuemin", "valuemax", "valuetext", "checked", "expanded", "modal", "pressed", "selected", "activedescendant", "controls", "describedby", "details", "errormessage", "flowto", "labelledby", "owns":
+	case "busy", "disabled", "editable", "focusable", "focused", "hidden", "hiddenRoot", "invalid", "keyshortcuts", "settable", "roledescription", "live", "atomic", "relevant", "root", "autocomplete", "hasPopup", "level", "multiselectable", "orientation", "multiline", "readonly", "required", "valuemin", "valuemax", "valuetext", "checked", "expanded", "modal", "pressed", "selected", "activedescendant", "controls", "describedby", "details", "errormessage", "flowto", "labelledby", "owns":
 		return true
 	default:
 		return false

@@ -159,6 +159,22 @@ func (d *domainClient) GetBoxModel(ctx context.Context, args *GetBoxModelArgs) (
 	return
 }
 
+// GetContentQuads invokes the DOM method. Returns quads that describe node
+// position on the page. This method might return multiple quads for inline
+// nodes.
+func (d *domainClient) GetContentQuads(ctx context.Context, args *GetContentQuadsArgs) (reply *GetContentQuadsReply, err error) {
+	reply = new(GetContentQuadsReply)
+	if args != nil {
+		err = rpcc.Invoke(ctx, "DOM.getContentQuads", args, reply, d.conn)
+	} else {
+		err = rpcc.Invoke(ctx, "DOM.getContentQuads", nil, reply, d.conn)
+	}
+	if err != nil {
+		err = &internal.OpError{Domain: "DOM", Op: "GetContentQuads", Err: err}
+	}
+	return
+}
+
 // GetDocument invokes the DOM method. Returns the root DOM node (and
 // optionally the subtree) to the caller.
 func (d *domainClient) GetDocument(ctx context.Context, args *GetDocumentArgs) (reply *GetDocumentReply, err error) {
@@ -190,7 +206,8 @@ func (d *domainClient) GetFlattenedDocument(ctx context.Context, args *GetFlatte
 }
 
 // GetNodeForLocation invokes the DOM method. Returns node id at given
-// location.
+// location. Depending on whether DOM domain is enabled, nodeId is either
+// returned or not.
 func (d *domainClient) GetNodeForLocation(ctx context.Context, args *GetNodeForLocationArgs) (reply *GetNodeForLocationReply, err error) {
 	reply = new(GetNodeForLocationReply)
 	if args != nil {
@@ -303,17 +320,17 @@ func (d *domainClient) PushNodeByPathToFrontend(ctx context.Context, args *PushN
 	return
 }
 
-// PushNodesByBackendIdsToFrontend invokes the DOM method. Requests that a
+// PushNodesByBackendIDsToFrontend invokes the DOM method. Requests that a
 // batch of nodes is sent to the caller given their backend node ids.
-func (d *domainClient) PushNodesByBackendIdsToFrontend(ctx context.Context, args *PushNodesByBackendIdsToFrontendArgs) (reply *PushNodesByBackendIdsToFrontendReply, err error) {
-	reply = new(PushNodesByBackendIdsToFrontendReply)
+func (d *domainClient) PushNodesByBackendIDsToFrontend(ctx context.Context, args *PushNodesByBackendIDsToFrontendArgs) (reply *PushNodesByBackendIDsToFrontendReply, err error) {
+	reply = new(PushNodesByBackendIDsToFrontendReply)
 	if args != nil {
 		err = rpcc.Invoke(ctx, "DOM.pushNodesByBackendIdsToFrontend", args, reply, d.conn)
 	} else {
 		err = rpcc.Invoke(ctx, "DOM.pushNodesByBackendIdsToFrontend", nil, reply, d.conn)
 	}
 	if err != nil {
-		err = &internal.OpError{Domain: "DOM", Op: "PushNodesByBackendIdsToFrontend", Err: err}
+		err = &internal.OpError{Domain: "DOM", Op: "PushNodesByBackendIDsToFrontend", Err: err}
 	}
 	return
 }

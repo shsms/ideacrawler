@@ -182,7 +182,7 @@ func (s *ideaCrawlerServer) addNewJob(nj newJob) {
 			connected:            true,
 		}
 	}
-	var callbackURLRegexp, followURLRegexp, anchorTextRegexp *regexp.Regexp
+	var callbackURLRegexp, followURLRegexp, callbackAnchorTextRegexp *regexp.Regexp
 	if len(nj.opts.CallbackUrlRegexp) > 0 {
 		callbackURLRegexp, err = regexp.Compile(nj.opts.CallbackUrlRegexp)
 		if err != nil {
@@ -197,10 +197,10 @@ func (s *ideaCrawlerServer) addNewJob(nj newJob) {
 			return
 		}
 	}
-	if len(nj.opts.AnchorTextRegexp) > 0 {
-		anchorTextRegexp, err = regexp.Compile(nj.opts.AnchorTextRegexp)
+	if len(nj.opts.CallbackAnchorTextRegexp) > 0 {
+		callbackAnchorTextRegexp, err = regexp.Compile(nj.opts.CallbackAnchorTextRegexp)
 		if err != nil {
-			nj.retChan <- jobStatusFailureMessage(fmt.Errorf("AnchorTextRegexp doesn't compile - %s - %s", nj.opts.AnchorTextRegexp, err))
+			nj.retChan <- jobStatusFailureMessage(fmt.Errorf("AnchorTextRegexp doesn't compile - %s - %s", nj.opts.CallbackAnchorTextRegexp, err))
 			return
 		}
 	}
@@ -208,28 +208,28 @@ func (s *ideaCrawlerServer) addNewJob(nj newJob) {
 	regDoneC := make(chan chan jobDoneSignal)
 	randChan := make(chan int, 5)
 	s.jobs[sub.Subcode] = &job{
-		domainname:           domainname,
-		opts:                 nj.opts,
-		sub:                  sub,
-		prevRun:              time.Time{},
-		nextRun:              time.Time{},
-		frequency:            freq,
-		runNumber:            0,
-		running:              false,
-		done:                 false,
-		seqnum:               0,
-		callbackURLRegexp:    callbackURLRegexp,
-		followURLRegexp:      followURLRegexp,
-		anchorTextRegexp:     anchorTextRegexp,
-		subscriber:           subr,
-		mu:                   sync.Mutex{},
-		duplicates:           map[string]bool{},
-		cancelChan:           canc,
-		doneListeners:        []chan jobDoneSignal{},
-		registerDoneListener: regDoneC,
-		doneChan:             make(chan jobDoneSignal),
-		randChan:             randChan,
-		log:                  nil,
+		domainname:               domainname,
+		opts:                     nj.opts,
+		sub:                      sub,
+		prevRun:                  time.Time{},
+		nextRun:                  time.Time{},
+		frequency:                freq,
+		runNumber:                0,
+		running:                  false,
+		done:                     false,
+		seqnum:                   0,
+		callbackURLRegexp:        callbackURLRegexp,
+		followURLRegexp:          followURLRegexp,
+		callbackAnchorTextRegexp: callbackAnchorTextRegexp,
+		subscriber:               subr,
+		mu:                       sync.Mutex{},
+		duplicates:               map[string]bool{},
+		cancelChan:               canc,
+		doneListeners:            []chan jobDoneSignal{},
+		registerDoneListener:     regDoneC,
+		doneChan:                 make(chan jobDoneSignal),
+		randChan:                 randChan,
+		log:                      nil,
 	}
 	go randomGenerator(int(nj.opts.MinDelay), int(nj.opts.MaxDelay), randChan)
 	nj.retChan <- newJobStatus{
@@ -363,7 +363,7 @@ func (s *ideaCrawlerServer) CancelJob(ctx context.Context, sub *pb.Subscription)
 	if sub == nil {
 		emsg := "Received nil subscription in CancelJob.  Not canceling anything."
 		log.Println(emsg)
-		return &pb.Status{false, emsg}, errors.New(emsg)
+		return &pb.Status{Success: false, Error: emsg}, errors.New(emsg)
 	}
 	log.Println("Cancel request received for job:", sub.Subcode)
 	retChan := make(chan newJobStatus)
@@ -371,10 +371,10 @@ func (s *ideaCrawlerServer) CancelJob(ctx context.Context, sub *pb.Subscription)
 	njs := <-retChan
 	if njs.err != nil {
 		log.Println("ERR - Cancel failed -", njs.err.Error())
-		return &pb.Status{false, njs.err.Error()}, njs.err
+		return &pb.Status{Success: false, Error: njs.err.Error()}, njs.err
 	}
 	njs.cancelChan <- cancelSignal{}
-	return &pb.Status{true, ""}, nil
+	return &pb.Status{Success: true, Error: ""}, nil
 }
 
 func (s *ideaCrawlerServer) GetAnalyzedURLs(sub *pb.Subscription, ostream pb.IdeaCrawler_GetAnalyzedURLsServer) error {
@@ -446,6 +446,22 @@ func (s *ideaCrawlerServer) AddDomainAndListen(opts *pb.DomainOpt, ostream pb.Id
 	return nil
 }
 
+func (j *job) checkEnqueueEligibility(nurl string, anchorText string) bool {
+	var reqMatch = true
+	var followMatch = true
+
+	if (j.callbackURLRegexp != nil && j.callbackURLRegexp.MatchString(nurl) == false) || (j.callbackAnchorTextRegexp != nil && j.callbackAnchorTextRegexp.MatchString(anchorText) == false) {
+		reqMatch = false
+	}
+	if j.followURLRegexp != nil && j.followURLRegexp.MatchString(nurl) == false {
+		followMatch = false
+	}
+	if !reqMatch && !followMatch {
+		return false
+	}
+	return true
+}
+
 func (j *job) enqueueLinks(ctx *fetchbot.Context, doc *goquery.Document, urlDepth int32, requestURL *url.URL) {
 	j.mu.Lock()
 	defer j.mu.Unlock()
@@ -474,21 +490,11 @@ func (j *job) enqueueLinks(ctx *fetchbot.Context, doc *goquery.Document, urlDept
 		if j.subscriber.analyzedURLConnected == true {
 			urlMap[nurl] = true
 		}
-		var reqMatch = true
-		var followMatch = true
-		var anchorMatch = true
-		if j.callbackURLRegexp != nil && j.callbackURLRegexp.MatchString(nurl) == false {
-			reqMatch = false
-		}
-		if j.followURLRegexp != nil && j.followURLRegexp.MatchString(nurl) == false {
-			followMatch = false
-		}
-		if j.anchorTextRegexp != nil && j.anchorTextRegexp.MatchString(anchorText) == false {
-			anchorMatch = false
-		}
-		if !reqMatch && !followMatch && !anchorMatch {
+
+		if j.checkEnqueueEligibility(nurl, anchorText) == false {
 			return
 		}
+
 		if !j.duplicates[nurl] {
 			if j.opts.SeedUrl != "" && (!j.opts.FollowOtherDomains && u.Hostname() != j.domainname) {
 				j.duplicates[nurl] = true

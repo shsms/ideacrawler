@@ -4,13 +4,25 @@ package emulation
 
 import (
 	"github.com/mafredri/cdp/protocol/dom"
+	"github.com/mafredri/cdp/protocol/network"
 	"github.com/mafredri/cdp/protocol/page"
-	"github.com/mafredri/cdp/protocol/runtime"
 )
 
 // CanEmulateReply represents the return values for CanEmulate in the Emulation domain.
 type CanEmulateReply struct {
 	Result bool `json:"result"` // True if emulation is supported.
+}
+
+// SetFocusEmulationEnabledArgs represents the arguments for SetFocusEmulationEnabled in the Emulation domain.
+type SetFocusEmulationEnabledArgs struct {
+	Enabled bool `json:"enabled"` // Whether to enable to disable focus emulation.
+}
+
+// NewSetFocusEmulationEnabledArgs initializes SetFocusEmulationEnabledArgs with the required arguments.
+func NewSetFocusEmulationEnabledArgs(enabled bool) *SetFocusEmulationEnabledArgs {
+	args := new(SetFocusEmulationEnabledArgs)
+	args.Enabled = enabled
+	return args
 }
 
 // SetCPUThrottlingRateArgs represents the arguments for SetCPUThrottlingRate in the Emulation domain.
@@ -172,6 +184,30 @@ func (a *SetDeviceMetricsOverrideArgs) SetViewport(viewport page.Viewport) *SetD
 	return a
 }
 
+// SetScrollbarsHiddenArgs represents the arguments for SetScrollbarsHidden in the Emulation domain.
+type SetScrollbarsHiddenArgs struct {
+	Hidden bool `json:"hidden"` // Whether scrollbars should be always hidden.
+}
+
+// NewSetScrollbarsHiddenArgs initializes SetScrollbarsHiddenArgs with the required arguments.
+func NewSetScrollbarsHiddenArgs(hidden bool) *SetScrollbarsHiddenArgs {
+	args := new(SetScrollbarsHiddenArgs)
+	args.Hidden = hidden
+	return args
+}
+
+// SetDocumentCookieDisabledArgs represents the arguments for SetDocumentCookieDisabled in the Emulation domain.
+type SetDocumentCookieDisabledArgs struct {
+	Disabled bool `json:"disabled"` // Whether document.coookie API should be disabled.
+}
+
+// NewSetDocumentCookieDisabledArgs initializes SetDocumentCookieDisabledArgs with the required arguments.
+func NewSetDocumentCookieDisabledArgs(disabled bool) *SetDocumentCookieDisabledArgs {
+	args := new(SetDocumentCookieDisabledArgs)
+	args.Disabled = disabled
+	return args
+}
+
 // SetEmitTouchEventsForMouseArgs represents the arguments for SetEmitTouchEventsForMouse in the Emulation domain.
 type SetEmitTouchEventsForMouseArgs struct {
 	Enabled bool `json:"enabled"` // Whether touch emulation based on mouse input should be enabled.
@@ -300,10 +336,11 @@ func (a *SetTouchEmulationEnabledArgs) SetMaxTouchPoints(maxTouchPoints int) *Se
 
 // SetVirtualTimePolicyArgs represents the arguments for SetVirtualTimePolicy in the Emulation domain.
 type SetVirtualTimePolicyArgs struct {
-	Policy                            VirtualTimePolicy `json:"policy"`                                      // No description.
-	Budget                            *float64          `json:"budget,omitempty"`                            // If set, after this many virtual milliseconds have elapsed virtual time will be paused and a virtualTimeBudgetExpired event is sent.
-	MaxVirtualTimeTaskStarvationCount *int              `json:"maxVirtualTimeTaskStarvationCount,omitempty"` // If set this specifies the maximum number of tasks that can be run before virtual is forced forwards to prevent deadlock.
-	WaitForNavigation                 *bool             `json:"waitForNavigation,omitempty"`                 // If set the virtual time policy change should be deferred until any frame starts navigating. Note any previous deferred policy change is superseded.
+	Policy                            VirtualTimePolicy      `json:"policy"`                                      // No description.
+	Budget                            *float64               `json:"budget,omitempty"`                            // If set, after this many virtual milliseconds have elapsed virtual time will be paused and a virtualTimeBudgetExpired event is sent.
+	MaxVirtualTimeTaskStarvationCount *int                   `json:"maxVirtualTimeTaskStarvationCount,omitempty"` // If set this specifies the maximum number of tasks that can be run before virtual is forced forwards to prevent deadlock.
+	WaitForNavigation                 *bool                  `json:"waitForNavigation,omitempty"`                 // If set the virtual time policy change should be deferred until any frame starts navigating. Note any previous deferred policy change is superseded.
+	InitialVirtualTime                network.TimeSinceEpoch `json:"initialVirtualTime,omitempty"`                // If set, base::Time::Now will be overridden to initially return this value.
 }
 
 // NewSetVirtualTimePolicyArgs initializes SetVirtualTimePolicyArgs with the required arguments.
@@ -338,10 +375,17 @@ func (a *SetVirtualTimePolicyArgs) SetWaitForNavigation(waitForNavigation bool) 
 	return a
 }
 
+// SetInitialVirtualTime sets the InitialVirtualTime optional argument.
+// If set, base::Time::Now will be overridden to initially return this
+// value.
+func (a *SetVirtualTimePolicyArgs) SetInitialVirtualTime(initialVirtualTime network.TimeSinceEpoch) *SetVirtualTimePolicyArgs {
+	a.InitialVirtualTime = initialVirtualTime
+	return a
+}
+
 // SetVirtualTimePolicyReply represents the return values for SetVirtualTimePolicy in the Emulation domain.
 type SetVirtualTimePolicyReply struct {
-	VirtualTimeBase      runtime.Timestamp `json:"virtualTimeBase"`      // Absolute timestamp at which virtual time was first enabled (milliseconds since epoch).
-	VirtualTimeTicksBase float64           `json:"virtualTimeTicksBase"` // Absolute timestamp at which virtual time was first enabled (up time in milliseconds).
+	VirtualTimeTicksBase float64 `json:"virtualTimeTicksBase"` // Absolute timestamp at which virtual time was first enabled (up time in milliseconds).
 }
 
 // SetVisibleSizeArgs represents the arguments for SetVisibleSize in the Emulation domain.
@@ -356,4 +400,32 @@ func NewSetVisibleSizeArgs(width int, height int) *SetVisibleSizeArgs {
 	args.Width = width
 	args.Height = height
 	return args
+}
+
+// SetUserAgentOverrideArgs represents the arguments for SetUserAgentOverride in the Emulation domain.
+type SetUserAgentOverrideArgs struct {
+	UserAgent      string  `json:"userAgent"`                // User agent to use.
+	AcceptLanguage *string `json:"acceptLanguage,omitempty"` // Browser langugage to emulate.
+	Platform       *string `json:"platform,omitempty"`       // The platform navigator.platform should return.
+}
+
+// NewSetUserAgentOverrideArgs initializes SetUserAgentOverrideArgs with the required arguments.
+func NewSetUserAgentOverrideArgs(userAgent string) *SetUserAgentOverrideArgs {
+	args := new(SetUserAgentOverrideArgs)
+	args.UserAgent = userAgent
+	return args
+}
+
+// SetAcceptLanguage sets the AcceptLanguage optional argument.
+// Browser langugage to emulate.
+func (a *SetUserAgentOverrideArgs) SetAcceptLanguage(acceptLanguage string) *SetUserAgentOverrideArgs {
+	a.AcceptLanguage = &acceptLanguage
+	return a
+}
+
+// SetPlatform sets the Platform optional argument. The platform
+// navigator.platform should return.
+func (a *SetUserAgentOverrideArgs) SetPlatform(platform string) *SetUserAgentOverrideArgs {
+	a.Platform = &platform
+	return a
 }

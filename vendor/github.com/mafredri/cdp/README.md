@@ -2,17 +2,17 @@
 
 [![Build Status][travis-badge]][travis] [![Coverage Status][codecov-badge]][codecov] [![Go Report Card][goreportcard-badge]][goreportcard] [![GoDoc][godoc-badge]][godoc]
 
-Package `cdp` provides type-safe bindings for the [Chrome Debugging Protocol][devtool-protocol] (CDP), written in the Go programming language. The bindings are generated (by [cdpgen][cdpgen]) from the latest [tip-of-tree (tot)][tip-of-tree] protocol definitions and are mainly intended for use with Google Chrome or Chromium, however, they can be used with any debug target ([Node.js][node-debugging], [Edge][edge-diagnostics-adapter], [Safari][ios-webkit-debug-proxy], etc.) that implement the protocol.
+Package `cdp` provides type-safe bindings for the [Chrome DevTools Protocol][chrome-devtools-protocol] (CDP), written in the Go programming language. The bindings are generated (by [cdpgen][cdpgen]) from the latest [tip-of-tree (tot)][tip-of-tree] protocol definitions and are mainly intended for use with Google Chrome or Chromium, however, they can be used with any debug target ([Node.js][node-debugging], [Edge DevTools Protocol][edge-devtools-protocol], [Safari][ios-webkit-debug-proxy], etc.) that implement the protocol.
 
-This package can be used for any kind of browser automation, scripting or debugging via the Chrome Debugging Protocol.
+This package can be used for any kind of browser automation, scripting or debugging via the Chrome DevTools Protocol.
 
-A big motivation for `cdp` is to expose the full functionality of the Chrome Debugging Protocol and provide it in a discoverable and self-documenting manner.
+A big motivation for `cdp` is to expose the full functionality of the Chrome DevTools Protocol and provide it in a discoverable and self-documenting manner.
 
 Providing high-level browser automation is a non-goal for this project. That being said, `cdp` hopes to improve the ergonomics of working with the protocol by providing primitives better suited for Go and automating repetitive tasks.
 
 ## Features
 
-* Discoverable API for the Chrome Debugging Protocol (GoDoc, autocomplete friendly)
+* Discoverable API for the Chrome DevTools Protocol (GoDoc, autocomplete friendly)
 * Contexts as a first-class citizen (for timeouts and cancellation)
 * Simple and synchronous event handling (no callbacks)
 * Concurrently safe
@@ -29,7 +29,7 @@ $ go get -u github.com/mafredri/cdp
 
 ## Documentation
 
-See [API documentation][godoc] for package, API descriptions and examples. Examples can also be found in this repository, see the [simple][simple-example], [advanced][advanced-example] and [logging][logging-example] examples.
+See [API documentation][godoc] for package, API descriptions and examples. Examples can also be found in this repository, see the [simple][simple-example], [advanced][advanced-example], [logging][logging-example] and [incognito][incognito-example] examples.
 
 ## Usage
 
@@ -78,7 +78,7 @@ func run(timeout time.Duration) error {
 		}
 	}
 
-	// Initiate a new RPC connection to the Chrome Debugging Protocol target.
+	// Initiate a new RPC connection to the Chrome DevTools Protocol target.
 	conn, err := rpcc.DialContext(ctx, pt.WebSocketDebuggerURL)
 	if err != nil {
 		return err
@@ -155,13 +155,13 @@ For more information, consult the [documentation](#documentation).
 
 ## Acknowledgements
 
-The Go implementation of gRPC ([grpc-go](https://github.com/grpc/grpc-go)) has been a source of inspiration for some of the design descisions made in the `cdp` and `rpcc` packages. Some ideas have also been borrowed from the `net/rpc` package from the standard library.
+The Go implementation of gRPC ([grpc-go](https://github.com/grpc/grpc-go)) has been a source of inspiration for some of the design decisions made in the `cdp` and `rpcc` packages. Some ideas have also been borrowed from the `net/rpc` package from the standard library.
 
 ## Resources
 
-* [Chrome DevTools Protocol][devtool-protocol]
+* [Chrome DevTools Protocol][chrome-devtools-protocol]
     * [Viewer (latest tip-of-tree)][tip-of-tree] official protocol API docs
-    * [Repository (GitHub)](https://github.com/chromedevtools/devtools-protocol) please [file issues](https://github.com/ChromeDevTools/devtools-protocol/issues) at this repo if you have concerns or problems with the Chrome Debugging Protocol
+    * [Repository (GitHub)](https://github.com/chromedevtools/devtools-protocol) please [file issues](https://github.com/ChromeDevTools/devtools-protocol/issues) at this repo if you have concerns or problems with the Chrome DevTools Protocol
     * [Mailing list](https://groups.google.com/forum/#!forum/chrome-debugging-protocol)
 * [Getting Started with Headless Chrome](https://developers.google.com/web/updates/2017/04/headless-chrome)
 * [Awesome chrome-devtools: Chrome DevTools Protocol](https://github.com/ChromeDevTools/awesome-chrome-devtools#chrome-devtools-protocol)
@@ -172,11 +172,12 @@ The Go implementation of gRPC ([grpc-go](https://github.com/grpc/grpc-go)) has b
 [simple-example]: https://github.com/mafredri/cdp/blob/master/example_test.go
 [advanced-example]: https://github.com/mafredri/cdp/blob/master/example_advanced_test.go
 [logging-example]: https://github.com/mafredri/cdp/blob/master/example_logging_test.go
+[incognito-example]: https://github.com/mafredri/cdp/blob/master/example_incognito_test.go
 
-[devtool-protocol]: https://chromedevtools.github.io/devtools-protocol/
+[chrome-devtools-protocol]: https://chromedevtools.github.io/devtools-protocol/
 [tip-of-tree]: https://chromedevtools.github.io/devtools-protocol/tot/
 [node-debugging]: https://nodejs.org/en/docs/guides/debugging-getting-started/
-[edge-diagnostics-adapter]: https://github.com/Microsoft/edge-diagnostics-adapter
+[edge-devtools-protocol]: https://docs.microsoft.com/en-us/microsoft-edge/devtools-protocol/
 [ios-webkit-debug-proxy]: https://github.com/google/ios-webkit-debug-proxy
 
 [travis]: https://travis-ci.org/mafredri/cdp
