@@ -4,26 +4,34 @@ import (
 	"log"
 	"math/rand"
 	"regexp"
+	"strconv"
 	"testing"
 	"time"
 
 	gc "github.com/ideas2it/ideacrawler/goclient"
+	"github.com/phayes/freeport"
 )
 
 var serverRunning bool
+var serverPort string
 
-func startTestServer() string {
+func startTestServer() (string, error) {
 	if serverRunning == true {
-		return "2345"
+		return serverPort, nil
 	}
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	rand.Seed(time.Now().UTC().UnixNano())
+	port, err := freeport.GetFreePort()
+	if err != nil {
+		return "", err
+	}
+	serverPort = strconv.Itoa(port)
 	cliParams.ListenAddress = "127.0.0.1"
-	cliParams.ListenPort = "2345"
+	cliParams.ListenPort = serverPort
 	go startServer()
 	serverRunning = true
 	time.Sleep(1 * time.Second)
-	return "2345"
+	return serverPort, nil
 }
 
 type TestData struct {
@@ -38,10 +46,15 @@ type TestData struct {
 	respBodyRegexp    string
 	respBodyMinLength int
 	respPageCount     int
+	pages             []string
 }
 
 func TestSinglePage(t *testing.T) {
-	port := startTestServer()
+	port, err := startTestServer()
+
+	if err != nil {
+		t.Fatal("unable to start test server:", err)
+	}
 
 	var dataPoints = []TestData{
 		TestData{
@@ -109,21 +122,39 @@ func TestSinglePage(t *testing.T) {
 	}
 }
 
-func TestMultiPage(t *testing.T) {
-	port := startTestServer()
+func TestMultiSiteFilter(t *testing.T) {
+	port, err := startTestServer()
+
+	if err != nil {
+		t.Fatal("unable to start test server:", err)
+	}
 
 	var dataPoints = []TestData{
 		TestData{
-			name:              "depth1",
-			seedURL:           "http://quotes.toscrape.com",
+			name:              "depth1Chrome",
+			seedURL:           "",
+			chrome:            true,
 			followUrlRegexp:   "com$|author",
-			callbackUrlRegexp: "author",
-			chrome:            false,
+			callbackUrlRegexp: "hub|author",
 			respStatusCode:    200,
 			respBodyMinLength: 100,
 			depth:             1,
 			maxIdleTime:       10,
-			respPageCount:     8,
+			pages:             []string{"http://quotes.toscrape.com", "http://books.toscrape.com"},
+			respPageCount:     9,
+		},
+		TestData{
+			name:              "depth1Raw",
+			seedURL:           "",
+			chrome:            false,
+			followUrlRegexp:   "com$|author",
+			callbackUrlRegexp: "hub|author",
+			respStatusCode:    200,
+			respBodyMinLength: 100,
+			depth:             1,
+			maxIdleTime:       10,
+			pages:             []string{"http://quotes.toscrape.com", "http://books.toscrape.com"},
+			respPageCount:     9,
 		},
 	}
 
@@ -138,11 +169,17 @@ func TestMultiPage(t *testing.T) {
 			z.Follow = true
 			z.Depth = dp.depth
 			z.MinDelay = 1
+			z.Impolite = true
 			z.MaxIdleTime = dp.maxIdleTime
 			z.CallbackUrlRegexp = dp.callbackUrlRegexp
 			z.FollowUrlRegexp = dp.followUrlRegexp
 
 			z.Start()
+
+			for _, ii := range dp.pages {
+				z.AddPage(ii, "")
+			}
+
 			pageCount := 0
 			for z.IsAlive() == true { // TODO:  or add timeout.
 				select {

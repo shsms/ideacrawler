@@ -58,7 +58,8 @@
   revision = "ad5b8c7a47b007a1cdaf6616ece1f71e94c189a6"
 
 [[projects]]
-  digest = "1:4c0989ca0bcd10799064318923b9bc2db6b4d6338dd75f3f2d86c3511aaaf5cf"
+  branch = "master"
+  digest = "1:3638dd58eb7a77bb1ed3f57e81f46ce636f0325f68e0900bb9170f71df93b9bc"
   name = "github.com/golang/protobuf"
   packages = [
     "proto",
@@ -68,8 +69,7 @@
     "ptypes/timestamp",
   ]
   pruneopts = "UT"
-  revision = "aa810b61a9c79d51363740d207bb46cf8e620ed5"
-  version = "v1.2.0"
+  revision = "347cf4a86c1cb8d262994d8ef5924d4576c5b331"
 
 [[projects]]
   branch = "master"
@@ -107,7 +107,7 @@
   revision = "c63ab54fda8f77302f8d414e19933f2b6026a089"
 
 [[projects]]
-  digest = "1:caad81b21ec6e74372ca2a7264d5d8bcc7b03c8854b0f22180e8c1351feccb24"
+  digest = "1:612ebc66cfa7484088f90ab86c7f1eb3d7696cf38ec2451c63f8d6008ff7625f"
   name = "github.com/mafredri/cdp"
   packages = [
     ".",
@@ -155,6 +155,7 @@
     "protocol/tethering",
     "protocol/tracing",
     "rpcc",
+    "session",
   ]
   pruneopts = "UT"
   revision = "0b30a3d15c28f2c8f028f99009cfba0b19baf126"
@@ -175,6 +176,14 @@
   pruneopts = "UT"
   revision = "5f041e8faa004a95c88a202771f4cc3e991971e6"
   version = "v2.0.1"
+
+[[projects]]
+  digest = "1:7413525ee648f20b4181be7fe8103d0cb98be9e141926a03ee082dc207061e4e"
+  name = "github.com/phayes/freeport"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "b8543db493a5ed890c5499e935e2cad7504f3a04"
+  version = "1.0.2"
 
 [[projects]]
   branch = "master"
@@ -336,7 +345,10 @@
     "github.com/mafredri/cdp/protocol/network",
     "github.com/mafredri/cdp/protocol/page",
     "github.com/mafredri/cdp/protocol/runtime",
+    "github.com/mafredri/cdp/protocol/target",
     "github.com/mafredri/cdp/rpcc",
+    "github.com/mafredri/cdp/session",
+    "github.com/phayes/freeport",
     "github.com/shsms-i2i/sflag",
     "golang.org/x/net/context",
     "golang.org/x/sync/errgroup",

@@ -22,13 +22,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/mafredri/cdp"
-	"github.com/mafredri/cdp/devtool"
-	"github.com/mafredri/cdp/protocol/dom"
-	"github.com/mafredri/cdp/protocol/network"
-	"github.com/mafredri/cdp/protocol/page"
-	"github.com/mafredri/cdp/protocol/runtime"
-	"github.com/mafredri/cdp/rpcc"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -39,6 +32,16 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mafredri/cdp"
+	"github.com/mafredri/cdp/devtool"
+	"github.com/mafredri/cdp/protocol/dom"
+	"github.com/mafredri/cdp/protocol/network"
+	"github.com/mafredri/cdp/protocol/page"
+	"github.com/mafredri/cdp/protocol/runtime"
+	"github.com/mafredri/cdp/protocol/target"
+	"github.com/mafredri/cdp/rpcc"
+	"github.com/mafredri/cdp/session"
+	"github.com/phayes/freeport"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -48,6 +51,7 @@ type ChromeClient struct {
 	pageTgt     *devtool.Target
 	conn        *rpcc.Conn
 	c           *cdp.Client
+	mgr         *session.Manager
 	ctx         context.Context
 	cancel      context.CancelFunc
 	chromeCmd   *exec.Cmd
@@ -85,15 +89,20 @@ func (cc *ChromeClient) Stop() {
 
 func (cc *ChromeClient) Start() error {
 	var err error
-	cc.chromeCmd = exec.Command(cc.cpath, "--headless", "--disable-gpu", "--remote-debugging-port=9222")
+	port, err := freeport.GetFreePort()
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+	portStr := strconv.Itoa(port)
+	cc.chromeCmd = exec.Command(cc.cpath /*"--headless",*/, "--disable-gpu", "--remote-debugging-port="+portStr)
 	err = cc.chromeCmd.Start()
 	time.Sleep(3 * time.Second) // TODO: make customizable. give a few seconds for browser to start.
 	if err != nil {
 		log.Println("Unable to start chrome browser in path '" + cc.cpath + "'. Error - " + err.Error())
 		return err
 	}
-
-	cc.devt = devtool.New("http://localhost:9222")
+	cc.devt = devtool.New("http://localhost:" + portStr)
 	cc.pageTgt, err = cc.devt.Get(cc.ctx, devtool.Page)
 	if err != nil {
 		log.Println(err)
@@ -120,7 +129,7 @@ func (cc *ChromeClient) Start() error {
 		return err
 	}
 
-	cc.rspRcvd, err = cc.c.Network.ResponseReceived(cc.ctx)
+	cc.mgr, err = session.NewManager(cc.c)
 	if err != nil {
 		log.Println(err)
 		return err
@@ -131,8 +140,8 @@ func (cc *ChromeClient) Start() error {
 // "http://" types,  or "crawljs-builtinjs://<hostname>/<js>?<url> or
 //                      "crawljs-jscript://<hostname>/<builtin OP name>"
 func (cc *ChromeClient) Do(req *http.Request) (resp *http.Response, err error) {
-	cc.mu.Lock()
-	defer cc.mu.Unlock()
+	//	cc.mu.Lock()
+	//	defer cc.mu.Unlock()
 	if strings.HasPrefix(req.URL.Scheme, "crawljs") {
 		return cc.doJS(req)
 	}
@@ -142,17 +151,45 @@ func (cc *ChromeClient) Do(req *http.Request) (resp *http.Response, err error) {
 func (cc *ChromeClient) doNavigate(req *http.Request) (resp *http.Response, err error) {
 	var url = req.URL.String()
 	log.Printf("Chrome doing: %v\n", url)
+	newPage, err := cc.c.Target.CreateTarget(context.TODO(), target.NewCreateTargetArgs("about:blank"))
+	if err != nil {
+		log.Println(err)
+		return nil, err
+	}
+	defer cc.c.Target.CloseTarget(context.TODO(), &target.CloseTargetArgs{newPage.TargetID})
+	newPageConn, err := cc.mgr.Dial(context.TODO(), newPage.TargetID)
+	if err != nil {
+		log.Println(err)
+		return nil, err
+	}
+	defer newPageConn.Close()
+	newPageClient := cdp.NewClient(newPageConn)
+	if err = runBatch(
+		// Enable all the domain events that we're interested in.
+		func() error { return newPageClient.DOM.Enable(cc.ctx) },
+		func() error { return newPageClient.Network.Enable(cc.ctx, nil) },
+		func() error { return newPageClient.Page.Enable(cc.ctx) },
+		func() error { return newPageClient.Runtime.Enable(cc.ctx) },
+	); err != nil {
+		log.Println(err)
+		return nil, err
+	}
+	rspRcvd, err := newPageClient.Network.ResponseReceived(cc.ctx)
+	if err != nil {
+		log.Println(err)
+		return nil, err
+	}
 	domLoadTimer := time.After(cc.domLoadTime)
-	err = navigate(cc.ctx, cc.c.Page, url, cc.domLoadTime)
+	err = navigate(cc.ctx, newPageClient.Page, url, cc.domLoadTime)
 	if err != nil {
 		log.Println(err)
 		return nil, err
 	}
 	<-domLoadTimer
-	navhist, _ := cc.c.Page.GetNavigationHistory(cc.ctx)
+	navhist, _ := newPageClient.Page.GetNavigationHistory(cc.ctx)
 
-	<-cc.rspRcvd.Ready()
-	rsp, err := cc.rspRcvd.Recv()
+	<-rspRcvd.Ready()
+	rsp, err := rspRcvd.Recv()
 	currUrl := navhist.Entries[navhist.CurrentIndex].URL
 	log.Printf("Current URL: %v\n", currUrl)
 	for {
@@ -163,16 +200,16 @@ func (cc *ChromeClient) doNavigate(req *http.Request) (resp *http.Response, err 
 		if rsp.Response.URL == currUrl || rsp.Response.URL+"/" == currUrl || rsp.Response.URL == currUrl+"/" {
 			break
 		}
-		<-cc.rspRcvd.Ready()
-		rsp, err = cc.rspRcvd.Recv()
+		<-rspRcvd.Ready()
+		rsp, err = rspRcvd.Recv()
 	}
 
-	doc, err := cc.c.DOM.GetDocument(cc.ctx, nil)
+	doc, err := newPageClient.DOM.GetDocument(cc.ctx, nil)
 	if err != nil {
 		log.Println(err)
 		return nil, err
 	}
-	ohtml, err := cc.c.DOM.GetOuterHTML(cc.ctx, &dom.GetOuterHTMLArgs{
+	ohtml, err := newPageClient.DOM.GetOuterHTML(cc.ctx, &dom.GetOuterHTMLArgs{
 		NodeID: &doc.Root.NodeID,
 	})
 	if err != nil {
