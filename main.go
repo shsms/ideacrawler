@@ -39,6 +39,7 @@ import (
 	"github.com/PuerkitoBio/purell"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/uuid"
+	"github.com/ideas2it/ideacrawler/chromeclient"
 	pb "github.com/ideas2it/ideacrawler/protofiles"
 	sc "github.com/ideas2it/ideacrawler/statuscodes"
 	"github.com/shsms-i2i/sflag"
@@ -73,6 +74,7 @@ type ideaCrawlerServer struct {
 	jobs       map[string]*job
 	newJobChan chan<- newJob
 	newSubChan chan<- newSub
+	ccl        *chromeclient.ChromeClient
 }
 
 type newJobStatus struct {

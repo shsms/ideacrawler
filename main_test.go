@@ -103,7 +103,11 @@ func TestSinglePage(t *testing.T) {
 
 			z.Start()
 
-			ph := <-z.PageChan
+			var ph *gc.PageHTML
+			var ok bool
+			if ph, ok = <-z.PageChan; ok == false {
+				t.Fatalf("job ended early")
+			}
 
 			if ph.Httpstatuscode != dp.respStatusCode {
 				t.Errorf("expected status code: %d, got %d.", dp.respStatusCode, ph.Httpstatuscode)

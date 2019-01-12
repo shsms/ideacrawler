@@ -59,6 +59,14 @@ type ChromeClient struct {
 	rspRcvd     network.ResponseReceivedClient
 	started     bool
 	mu          sync.Mutex
+	up          bool
+}
+
+type ChromeDoer struct {
+	domLoadTime time.Duration
+	cc          *ChromeClient
+	ctx         context.Context
+	cancel      context.CancelFunc
 }
 
 func NewChromeClient(path string) *ChromeClient {
@@ -74,8 +82,34 @@ func NewChromeClient(path string) *ChromeClient {
 	}
 }
 
+func (cc *ChromeClient) CheckChromeProcess() error {
+	if cc.Up() == false {
+		err := cc.Start()
+		if err != nil {
+			log.Println("Unable to start chrome:", err)
+			return err
+		}
+	}
+	return nil
+}
+
+func (cc *ChromeClient) NewChromeDoer() *ChromeDoer {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	return &ChromeDoer{
+		domLoadTime: cc.domLoadTime,
+		cc:          cc,
+		ctx:         ctx,
+		cancel:      cancel,
+	}
+}
+
 func (cc *ChromeClient) SetDomLoadTime(secs int32) {
 	cc.domLoadTime = time.Duration(secs) * time.Second
+}
+
+func (cd *ChromeDoer) SetDomLoadTime(secs int32) {
+	cd.domLoadTime = time.Duration(secs) * time.Second
 }
 
 func (cc *ChromeClient) Stop() {
@@ -87,6 +121,13 @@ func (cc *ChromeClient) Stop() {
 	}
 }
 
+func (cc *ChromeClient) Up() bool {
+	if cc == nil {
+		return false
+	}
+	return cc.up
+}
+
 func (cc *ChromeClient) Start() error {
 	var err error
 	port, err := freeport.GetFreePort()
@@ -94,14 +135,24 @@ func (cc *ChromeClient) Start() error {
 		log.Println(err)
 		return err
 	}
+
+	// TODO: add support for starting chrome from a container.
 	portStr := strconv.Itoa(port)
-	cc.chromeCmd = exec.Command(cc.cpath /*"--headless",*/, "--disable-gpu", "--remote-debugging-port="+portStr)
+	cc.chromeCmd = exec.Command(cc.cpath, "--headless", "--disable-gpu", "--remote-debugging-port="+portStr)
 	err = cc.chromeCmd.Start()
-	time.Sleep(3 * time.Second) // TODO: make customizable. give a few seconds for browser to start.
 	if err != nil {
 		log.Println("Unable to start chrome browser in path '" + cc.cpath + "'. Error - " + err.Error())
 		return err
 	}
+
+	go func() {
+		cc.up = true
+		cc.chromeCmd.Wait()
+		cc.up = false
+	}()
+
+	time.Sleep(3 * time.Second) // TODO: make customizable. give a few seconds for browser to start.
+
 	cc.devt = devtool.New("http://localhost:" + portStr)
 	cc.pageTgt, err = cc.devt.Get(cc.ctx, devtool.Page)
 	if err != nil {
@@ -139,82 +190,112 @@ func (cc *ChromeClient) Start() error {
 
 // "http://" types,  or "crawljs-builtinjs://<hostname>/<js>?<url> or
 //                      "crawljs-jscript://<hostname>/<builtin OP name>"
-func (cc *ChromeClient) Do(req *http.Request) (resp *http.Response, err error) {
-	//	cc.mu.Lock()
-	//	defer cc.mu.Unlock()
+func (cd *ChromeDoer) Do(req *http.Request) (resp *http.Response, err error) {
 	if strings.HasPrefix(req.URL.Scheme, "crawljs") {
-		return cc.doJS(req)
+		return cd.doJS(req)
 	}
-	return cc.doNavigate(req)
+	r, _, e := cd.doNavigate(req, false)
+	return r, e
 }
 
-func (cc *ChromeClient) doNavigate(req *http.Request) (resp *http.Response, err error) {
-	var url = req.URL.String()
-	log.Printf("Chrome doing: %v\n", url)
-	newPage, err := cc.c.Target.CreateTarget(context.TODO(), target.NewCreateTargetArgs("about:blank"))
+type chromePage struct {
+	targetID target.ID
+	conn     *rpcc.Conn
+	client   *cdp.Client
+	rspRcvd  network.ResponseReceivedClient
+}
+
+func (cd *ChromeDoer) newPage() (*chromePage, error) {
+	cd.cc.CheckChromeProcess()
+	newPage, err := cd.cc.c.Target.CreateTarget(cd.ctx, target.NewCreateTargetArgs("about:blank"))
 	if err != nil {
-		log.Println(err)
 		return nil, err
 	}
-	defer cc.c.Target.CloseTarget(context.TODO(), &target.CloseTargetArgs{newPage.TargetID})
-	newPageConn, err := cc.mgr.Dial(context.TODO(), newPage.TargetID)
+
+	newPageConn, err := cd.cc.mgr.Dial(cd.ctx, newPage.TargetID)
 	if err != nil {
-		log.Println(err)
 		return nil, err
 	}
-	defer newPageConn.Close()
 	newPageClient := cdp.NewClient(newPageConn)
 	if err = runBatch(
 		// Enable all the domain events that we're interested in.
-		func() error { return newPageClient.DOM.Enable(cc.ctx) },
-		func() error { return newPageClient.Network.Enable(cc.ctx, nil) },
-		func() error { return newPageClient.Page.Enable(cc.ctx) },
-		func() error { return newPageClient.Runtime.Enable(cc.ctx) },
+		func() error { return newPageClient.DOM.Enable(cd.ctx) },
+		func() error { return newPageClient.Network.Enable(cd.ctx, nil) },
+		func() error { return newPageClient.Page.Enable(cd.ctx) },
+		func() error { return newPageClient.Runtime.Enable(cd.ctx) },
 	); err != nil {
-		log.Println(err)
 		return nil, err
 	}
-	rspRcvd, err := newPageClient.Network.ResponseReceived(cc.ctx)
+	rspRcvd, err := newPageClient.Network.ResponseReceived(cd.ctx)
 	if err != nil {
-		log.Println(err)
 		return nil, err
 	}
-	domLoadTimer := time.After(cc.domLoadTime)
-	err = navigate(cc.ctx, newPageClient.Page, url, cc.domLoadTime)
+	return &chromePage{
+		targetID: newPage.TargetID,
+		conn:     newPageConn,
+		client:   newPageClient,
+		rspRcvd:  rspRcvd,
+	}, nil
+}
+
+func (cd *ChromeDoer) closePage(p *chromePage) {
+	p.conn.Close()
+	cd.cc.c.Target.CloseTarget(cd.ctx, &target.CloseTargetArgs{p.targetID})
+}
+
+func (cd *ChromeDoer) doNavigate(req *http.Request, keepAlive bool) (resp *http.Response, p *chromePage, err error) {
+	var url = req.URL.String()
+	log.Printf("Chrome doing: %v\n", url)
+
+	newPage, err := cd.newPage()
 	if err != nil {
 		log.Println(err)
-		return nil, err
+		return nil, nil, err
+	}
+	if keepAlive == false {
+		defer cd.closePage(newPage)
+	}
+
+	domLoadTimer := time.After(cd.domLoadTime)
+	err = navigate(cd.ctx, newPage.client.Page, url, cd.domLoadTime)
+	if err != nil {
+		log.Println(err)
+		return nil, nil, err
 	}
 	<-domLoadTimer
-	navhist, _ := newPageClient.Page.GetNavigationHistory(cc.ctx)
+	navhist, err := newPage.client.Page.GetNavigationHistory(cd.ctx)
+	if err != nil {
+		log.Printf("unable to get navHistory from Chrome: %v", err)
+		return nil, nil, err
+	}
 
-	<-rspRcvd.Ready()
-	rsp, err := rspRcvd.Recv()
+	<-newPage.rspRcvd.Ready()
+	rsp, err := newPage.rspRcvd.Recv()
 	currUrl := navhist.Entries[navhist.CurrentIndex].URL
 	log.Printf("Current URL: %v\n", currUrl)
 	for {
 		if err != nil {
 			log.Println(err)
-			return nil, err
+			return nil, nil, err
 		}
 		if rsp.Response.URL == currUrl || rsp.Response.URL+"/" == currUrl || rsp.Response.URL == currUrl+"/" {
 			break
 		}
-		<-rspRcvd.Ready()
-		rsp, err = rspRcvd.Recv()
+		<-newPage.rspRcvd.Ready()
+		rsp, err = newPage.rspRcvd.Recv()
 	}
 
-	doc, err := newPageClient.DOM.GetDocument(cc.ctx, nil)
+	doc, err := newPage.client.DOM.GetDocument(cd.ctx, nil)
 	if err != nil {
 		log.Println(err)
-		return nil, err
+		return nil, nil, err
 	}
-	ohtml, err := newPageClient.DOM.GetOuterHTML(cc.ctx, &dom.GetOuterHTMLArgs{
+	ohtml, err := newPage.client.DOM.GetOuterHTML(cd.ctx, &dom.GetOuterHTMLArgs{
 		NodeID: &doc.Root.NodeID,
 	})
 	if err != nil {
 		log.Println(err)
-		return nil, err
+		return nil, nil, err
 	}
 	resp1 := &http.Response{
 		StatusCode: int(rsp.Response.Status),
@@ -230,41 +311,65 @@ func (cc *ChromeClient) doNavigate(req *http.Request) (resp *http.Response, err 
 			break
 		}
 	}
-	return resp1, nil
+	return resp1, newPage, nil
 }
 
-func (cc *ChromeClient) doJS(req *http.Request) (resp *http.Response, err error) {
-	domLoadTimer := time.After(cc.domLoadTime)
+func (cd *ChromeDoer) doJS(req *http.Request) (resp *http.Response, err error) {
+	domLoadTimer := time.After(cd.domLoadTime)
 	jscommand, err := url.PathUnescape(req.URL.Path)
 	if err != nil {
 		log.Println(err)
 		return nil, err
 	}
 	tgtUrl, err := url.QueryUnescape(req.URL.RawQuery)
-	navhist, _ := cc.c.Page.GetNavigationHistory(cc.ctx)
-	currUrl := navhist.Entries[navhist.CurrentIndex].URL
 
-	if tgtUrl != currUrl && tgtUrl+"/" != currUrl && tgtUrl != currUrl+"/" {
-		domNavigateTimer := time.After(cc.domLoadTime)
-		log.Printf("Navigating to %v\n", tgtUrl)
-		tgtURL, err := url.Parse(tgtUrl)
-		if err != nil {
-			log.Printf("doJS: unable to parse tgt url: %v\n", err)
-			return nil, err
-		}
+	// TODO: fix below navhist check. fails because below test is
+	// for first tab, which we don't use anymore.  replace with
+	// KeepAlivePages.
 
-		navRsp, err := cc.doNavigate(&http.Request{
-			URL: tgtURL,
-		})
-		if err != nil {
-			log.Printf("Navigation failed: %v\n", err)
-			return nil, err
-		}
-		if navRsp.StatusCode != 200 {
-			log.Printf("HTTP Status Code was: %v;  Use AddPage in chrome mode instead, to get page sent back anyway.")
-			return nil, err
-		}
-		<-domNavigateTimer
+	// navhist, _ := cd.cc.c.Page.GetNavigationHistory(cd.ctx)
+	// currUrl := navhist.Entries[navhist.CurrentIndex].URL
+
+	// if tgtUrl != currUrl && tgtUrl+"/" != currUrl && tgtUrl != currUrl+"/" {
+
+	// 	domNavigateTimer := time.After(cd.domLoadTime)
+	// 	log.Printf("Navigating to %v\n", tgtUrl)
+	// 	tgtURL, err := url.Parse(tgtUrl)
+	// 	if err != nil {
+	// 		log.Printf("doJS: unable to parse tgt url: %v\n", err)
+	// 		return nil, err
+	// 	}
+
+	// 	navRsp, err := cd.doNavigate(&http.Request{
+	// 		URL: tgtURL,
+	// 	})
+	// 	if err != nil {
+	// 		log.Printf("Navigation failed: %v\n", err)
+	// 		return nil, err
+	// 	}
+	// 	if navRsp.StatusCode != 200 {
+	// 		log.Printf("HTTP Status Code was: %v;  Use AddPage in chrome mode instead, to get page sent back anyway.")
+	// 		return nil, err
+	// 	}
+	// 	<-domNavigateTimer
+	// }
+
+	tgtURL, err := url.Parse(tgtUrl)
+	if err != nil {
+		log.Printf("doJS: unable to parse tgt url: %v\n", err)
+		return nil, err
+	}
+
+	navRsp, newPage, err := cd.doNavigate(&http.Request{
+		URL: tgtURL,
+	}, true)
+	if err != nil {
+		log.Printf("Navigation failed: %v\n", err)
+		return nil, err
+	}
+	if navRsp.StatusCode != 200 {
+		log.Printf("HTTP Status Code was: %v;  Use AddPage in chrome mode instead, to get page sent back anyway.")
+		return nil, err
 	}
 
 	if strings.HasSuffix(req.URL.Scheme, "builtinjs") {
@@ -272,7 +377,7 @@ func (cc *ChromeClient) doJS(req *http.Request) (resp *http.Response, err error)
 		case "/scrollToEnd":
 			expression := `window.scrollTo(0, document.body.scrollHeight)`
 			evalArgs := runtime.NewEvaluateArgs(expression)
-			_, err := cc.c.Runtime.Evaluate(cc.ctx, evalArgs)
+			_, err := newPage.client.Runtime.Evaluate(cd.ctx, evalArgs)
 			if err != nil {
 				log.Println(err)
 				return nil, err
@@ -284,12 +389,12 @@ func (cc *ChromeClient) doJS(req *http.Request) (resp *http.Response, err error)
                                    setTimeout(() => {
                                        newHeight=document.body.scrollHeight;
                                        resolve({"O": prevHeight, "N": newHeight});
-                                   }, ` + strconv.Itoa(int(cc.domLoadTime/time.Millisecond)) + `);
+                                   }, ` + strconv.Itoa(int(cd.domLoadTime/time.Millisecond)) + `);
                                });
 `
 			for {
 				evalArgs := runtime.NewEvaluateArgs(expression).SetAwaitPromise(true).SetReturnByValue(true)
-				eval, err := cc.c.Runtime.Evaluate(cc.ctx, evalArgs)
+				eval, err := newPage.client.Runtime.Evaluate(cd.ctx, evalArgs)
 				if err != nil {
 					log.Println(err)
 					return nil, err
@@ -311,26 +416,26 @@ func (cc *ChromeClient) doJS(req *http.Request) (resp *http.Response, err error)
 		}
 	} else if strings.HasSuffix(req.URL.Scheme, "jscript") {
 		evalArgs := runtime.NewEvaluateArgs(jscommand)
-		_, err := cc.c.Runtime.Evaluate(cc.ctx, evalArgs)
+		_, err := newPage.client.Runtime.Evaluate(cd.ctx, evalArgs)
 		if err != nil {
 			log.Println(err)
 			return nil, err
 		}
 	}
 	<-domLoadTimer
-	doc, err := cc.c.DOM.GetDocument(cc.ctx, nil)
+	doc, err := newPage.client.DOM.GetDocument(cd.ctx, nil)
 	if err != nil {
 		log.Println(err)
 		return nil, err
 	}
-	ohtml, err := cc.c.DOM.GetOuterHTML(cc.ctx, &dom.GetOuterHTMLArgs{
+	ohtml, err := newPage.client.DOM.GetOuterHTML(cd.ctx, &dom.GetOuterHTMLArgs{
 		NodeID: &doc.Root.NodeID,
 	})
 	if err != nil {
 		log.Println(err)
 		return nil, err
 	}
-	navhist, _ = cc.c.Page.GetNavigationHistory(cc.ctx)
+	navhist, _ := newPage.client.Page.GetNavigationHistory(cd.ctx)
 	currURL, err := url.Parse(navhist.Entries[navhist.CurrentIndex].URL)
 	if err != nil {
 		log.Println(err)
@@ -396,7 +501,8 @@ func zmain() {
 	req := &http.Request{
 		URL: urlobj,
 	}
-	r, err := cl.Do(req)
+	cd := cl.NewChromeDoer()
+	r, err := cd.Do(req)
 	pagebody, err := ioutil.ReadAll(r.Body)
 
 	fmt.Println(err, string(pagebody))
@@ -405,7 +511,7 @@ func zmain() {
 	req = &http.Request{
 		URL: urlobj,
 	}
-	r, err = cl.Do(req)
+	r, err = cd.Do(req)
 	pagebody, err = ioutil.ReadAll(r.Body)
 	fmt.Println(err, string(pagebody))
 }

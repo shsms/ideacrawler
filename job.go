@@ -47,6 +47,7 @@ type job struct {
 	mu                       sync.Mutex
 	duplicates               map[string]bool
 	cancelChan               chan cancelSignal
+	cd                       *chromeclient.ChromeDoer
 
 	// there will be a goroutine started inside RunJob that will listen on registerDoneListener for
 	// DoneListeners.  There will be a despatcher goroutine that will forward the doneChan info to
@@ -56,7 +57,6 @@ type job struct {
 	registerDoneListener chan chan jobDoneSignal
 	doneChan             chan jobDoneSignal
 	randChan             <-chan int // for random number between min and max norm distributed
-	cl                   *chromeclient.ChromeClient
 	log                  *log.Logger
 }
 
@@ -492,21 +492,25 @@ func (s *ideaCrawlerServer) makeHTTPClientLoginDirect(j *job, networkTransport h
 	return &Doer{httpClient, j, semaphore.NewWeighted(int64(j.opts.MaxConcurrentRequests)), s}, nil
 }
 
+func (s *ideaCrawlerServer) setupChromeClient(chromeBinary string) {
+	if s.ccl == nil {
+		s.ccl = chromeclient.NewChromeClient(chromeBinary)
+		s.ccl.CheckChromeProcess()
+	}
+}
+
 func (s *ideaCrawlerServer) makeHTTPClientRawChrome(j *job) (fetchbot.Doer, error) {
 	j.opts.Impolite = true // Always impolite in Chrome mode.
 	if j.opts.ChromeBinary == "" {
 		j.opts.ChromeBinary = "/usr/lib64/chromium-browser/headless_shell"
 	}
-	j.cl = chromeclient.NewChromeClient(j.opts.ChromeBinary)
+
+	s.setupChromeClient(j.opts.ChromeBinary)
+	j.cd = s.ccl.NewChromeDoer()
 	if j.opts.DomLoadTime > 0 {
-		j.cl.SetDomLoadTime(j.opts.DomLoadTime)
+		j.cd.SetDomLoadTime(j.opts.DomLoadTime)
 	}
-	err := j.cl.Start()
-	if err != nil {
-		j.log.Println("Unable to start chrome:", err)
-		return nil, err
-	}
-	return &Doer{j.cl, j, semaphore.NewWeighted(int64(j.opts.MaxConcurrentRequests)), s}, nil
+	return &Doer{j.cd, j, semaphore.NewWeighted(int64(j.opts.MaxConcurrentRequests)), s}, nil
 }
 
 func (s *ideaCrawlerServer) makeHTTPClientLoginChrome(j *job) (fetchbot.Doer, error) {
@@ -514,20 +518,17 @@ func (s *ideaCrawlerServer) makeHTTPClientLoginChrome(j *job) (fetchbot.Doer, er
 	if j.opts.ChromeBinary == "" {
 		j.opts.ChromeBinary = "/usr/lib64/chromium-browser/headless_shell"
 	}
-	j.cl = chromeclient.NewChromeClient(j.opts.ChromeBinary)
+	s.setupChromeClient(j.opts.ChromeBinary)
+	j.cd = s.ccl.NewChromeDoer()
 	if j.opts.DomLoadTime > 0 {
-		j.cl.SetDomLoadTime(j.opts.DomLoadTime)
+		j.cd.SetDomLoadTime(j.opts.DomLoadTime)
 	}
-	err := j.cl.Start()
-	if err != nil {
-		j.log.Println("Unable to start chrome:", err)
-		return nil, err
-	}
+
 	urlobj, _ := url.Parse(j.opts.LoginUrl)
 	req := &http.Request{
 		URL: urlobj,
 	}
-	loginResp, err := j.cl.Do(req)
+	loginResp, err := j.cd.Do(req)
 	if err != nil {
 		j.log.Println("Http request to chrome failed:", err)
 		return nil, err
@@ -552,7 +553,7 @@ func (s *ideaCrawlerServer) makeHTTPClientLoginChrome(j *job) (fetchbot.Doer, er
 	loginJsReq := &http.Request{
 		URL: loginjs,
 	}
-	loggedInResp, err := j.cl.Do(loginJsReq)
+	loggedInResp, err := j.cd.Do(loginJsReq)
 	loggedInBody, err := ioutil.ReadAll(loggedInResp.Body)
 	if cliParams.SaveLoginPages != "" {
 		err := ioutil.WriteFile(path.Join(cliParams.SaveLoginPages, "loggedin.html"), loggedInBody, 0755)
@@ -595,7 +596,7 @@ func (s *ideaCrawlerServer) makeHTTPClientLoginChrome(j *job) (fetchbot.Doer, er
 		j.sendPageHTML(nil, phtml)
 		j.log.Printf("Logged in. Found '%v' in '%v'\n", j.opts.LoginSuccessCheck.Value, j.opts.LoginSuccessCheck.Key)
 	}
-	return &Doer{j.cl, j, semaphore.NewWeighted(int64(j.opts.MaxConcurrentRequests)), s}, nil
+	return &Doer{j.cd, j, semaphore.NewWeighted(int64(j.opts.MaxConcurrentRequests)), s}, nil
 }
 
 func (s *ideaCrawlerServer) RunJob(subID string, j *job) {
@@ -641,13 +642,11 @@ func (s *ideaCrawlerServer) RunJob(subID string, j *job) {
 		if err != nil {
 			return
 		}
-		defer j.cl.Stop()
 	} else if j.opts.Chrome == true && j.opts.Login == true {
 		f.HttpClient, err = s.makeHTTPClientLoginChrome(j)
 		if err != nil {
 			return
 		}
-		defer j.cl.Stop()
 	}
 
 	f.DisablePoliteness = j.opts.Impolite

@@ -333,6 +333,7 @@ func (cj *CrawlJob) Run() {
 			for ph := range phChan {
 				cj.implPageChan <- ph
 			}
+			close(cj.implPageChan)
 		} else {
 			for ph := range phChan {
 				cj.Callback(ph, cj)
