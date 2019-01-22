@@ -1,4 +1,4 @@
-# IdeaCrawler
+# IdeaCrawler [![Build Status](https://travis-ci.com/shsms/ideacrawler.svg?branch=master)](https://travis-ci.com/shsms/ideacrawler)
 
 IdeaCrawler is a blazing fast, highly effective, flexible client-server crawling framework written in Go. We built it to perform certain tasks better than existing crawlers do. Based on the tests we conducted, this crawler outperforms Scrapy and other alternatives, many times over.  
 

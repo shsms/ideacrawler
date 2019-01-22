@@ -56,22 +56,22 @@ func TestSinglePage(t *testing.T) {
 	}
 
 	var dataPoints = []TestData{
-		TestData{
-			name:              "chrome200",
-			seedURL:           "http://quotes.toscrape.com/tag/simile/",
-			chrome:            true,
-			respStatusCode:    200,
-			respBodyRegexp:    "Life.is.like.riding.a.bicycle",
-			respBodyMinLength: 100,
-		},
-		TestData{
-			name:              "chrome404",
-			seedURL:           "http://quotes.toscrape.com/tag/simile/1",
-			chrome:            true,
-			respStatusCode:    404,
-			respBodyRegexp:    "",
-			respBodyMinLength: 0,
-		},
+		// TestData{
+		// 	name:              "chrome200",
+		// 	seedURL:           "http://quotes.toscrape.com/tag/simile/",
+		// 	chrome:            true,
+		// 	respStatusCode:    200,
+		// 	respBodyRegexp:    "Life.is.like.riding.a.bicycle",
+		// 	respBodyMinLength: 100,
+		// },
+		// TestData{
+		// 	name:              "chrome404",
+		// 	seedURL:           "http://quotes.toscrape.com/tag/simile/1",
+		// 	chrome:            true,
+		// 	respStatusCode:    404,
+		// 	respBodyRegexp:    "",
+		// 	respBodyMinLength: 0,
+		// },
 		TestData{
 			name:              "simple200",
 			seedURL:           "http://quotes.toscrape.com/tag/simile/",
@@ -133,19 +133,19 @@ func TestMultiSiteFilter(t *testing.T) {
 	}
 
 	var dataPoints = []TestData{
-		TestData{
-			name:              "depth1Chrome",
-			seedURL:           "",
-			chrome:            true,
-			followUrlRegexp:   "com$|author",
-			callbackUrlRegexp: "hub|author",
-			respStatusCode:    200,
-			respBodyMinLength: 100,
-			depth:             1,
-			maxIdleTime:       10,
-			pages:             []string{"http://quotes.toscrape.com", "http://books.toscrape.com"},
-			respPageCount:     9,
-		},
+		// TestData{
+		// 	name:              "depth1Chrome",
+		// 	seedURL:           "",
+		// 	chrome:            true,
+		// 	followUrlRegexp:   "com$|author",
+		// 	callbackUrlRegexp: "hub|author",
+		// 	respStatusCode:    200,
+		// 	respBodyMinLength: 100,
+		// 	depth:             1,
+		// 	maxIdleTime:       10,
+		// 	pages:             []string{"http://quotes.toscrape.com", "http://books.toscrape.com"},
+		// 	respPageCount:     9,
+		// },
 		TestData{
 			name:              "depth1Raw",
 			seedURL:           "",
