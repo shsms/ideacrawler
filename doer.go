@@ -24,7 +24,7 @@ type Doer struct {
 	doer fetchbot.Doer
 	job  *job
 	sema *semaphore.Weighted
-	s    *ideaCrawlerServer
+	s    *ideaCrawlerWorker
 }
 
 // Do does the following:

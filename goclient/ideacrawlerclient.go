@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"time"
 
 	google_protobuf1 "github.com/golang/protobuf/ptypes/duration"
@@ -232,7 +233,12 @@ func (cj *CrawlJob) AddJS(typ pb.PageReqType, url, js, metaStr string) error {
 }
 
 func (cj *CrawlJob) Start() {
-	go cj.Run()
+	go cj.Run(nil)
+	time.Sleep(2 * time.Second)
+}
+
+func (cj *CrawlJob) StartWithConn(tcpconn net.Conn) {
+	go cj.Run(tcpconn)
 	time.Sleep(2 * time.Second)
 }
 
@@ -250,7 +256,7 @@ func (cj *CrawlJob) OnFinish(onFinishFunc func()) {
 	cj.CleanUpFunc = onFinishFunc
 }
 
-func (cj *CrawlJob) Run() {
+func (cj *CrawlJob) Run(tcpconn net.Conn) {
 	cj.running = true
 	defer func() {
 		cj.running = false
@@ -267,6 +273,11 @@ func (cj *CrawlJob) Run() {
 
 	var opts []grpc.DialOption
 	opts = append(opts, grpc.WithInsecure())
+	if tcpconn != nil {
+		opts = append(opts, grpc.WithDialer(func(string, time.Duration) (net.Conn, error) {
+			return tcpconn, nil
+		}))
+	}
 	conn, err := grpc.Dial(cj.svrHost+":"+cj.svrPort, opts...)
 	if err != nil {
 		log.Fatalf("fail to dial: %v", err)

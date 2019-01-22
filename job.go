@@ -19,6 +19,7 @@ import (
 
 	"github.com/PuerkitoBio/fetchbot"
 	"github.com/PuerkitoBio/goquery"
+	"github.com/PuerkitoBio/purell"
 	"github.com/antchfx/xpath"
 	htmlquery "github.com/antchfx/xquery/html"
 	"github.com/gregjones/httpcache"
@@ -353,7 +354,7 @@ func (j *job) makeNetworkTransport() http.RoundTripper {
 	return networkTransport
 }
 
-func (s *ideaCrawlerServer) makeHTTPClientRawDirect(j *job, networkTransport http.RoundTripper) (fetchbot.Doer, error) {
+func (s *ideaCrawlerWorker) makeHTTPClientRawDirect(j *job, networkTransport http.RoundTripper) (fetchbot.Doer, error) {
 	gCurCookieJar, _ := cookiejar.New(nil)
 	httpClient := &http.Client{
 		Transport:     networkTransport,
@@ -370,7 +371,7 @@ func (s *ideaCrawlerServer) makeHTTPClientRawDirect(j *job, networkTransport htt
 	return &Doer{httpClient, j, semaphore.NewWeighted(int64(j.opts.MaxConcurrentRequests)), s}, nil
 }
 
-func (s *ideaCrawlerServer) makeHTTPClientLoginDirect(j *job, networkTransport http.RoundTripper) (fetchbot.Doer, error) {
+func (s *ideaCrawlerWorker) makeHTTPClientLoginDirect(j *job, networkTransport http.RoundTripper) (fetchbot.Doer, error) {
 	// create our own httpClient and attach a cookie jar to it,
 	// login using that client to the site if required,
 	// check if login succeeded,
@@ -492,14 +493,14 @@ func (s *ideaCrawlerServer) makeHTTPClientLoginDirect(j *job, networkTransport h
 	return &Doer{httpClient, j, semaphore.NewWeighted(int64(j.opts.MaxConcurrentRequests)), s}, nil
 }
 
-func (s *ideaCrawlerServer) setupChromeClient(chromeBinary string) {
+func (s *ideaCrawlerWorker) setupChromeClient(chromeBinary string) {
 	if s.ccl == nil {
 		s.ccl = chromeclient.NewChromeClient(chromeBinary)
 		s.ccl.CheckChromeProcess()
 	}
 }
 
-func (s *ideaCrawlerServer) makeHTTPClientRawChrome(j *job) (fetchbot.Doer, error) {
+func (s *ideaCrawlerWorker) makeHTTPClientRawChrome(j *job) (fetchbot.Doer, error) {
 	j.opts.Impolite = true // Always impolite in Chrome mode.
 	if j.opts.ChromeBinary == "" {
 		j.opts.ChromeBinary = "/usr/lib64/chromium-browser/headless_shell"
@@ -513,7 +514,7 @@ func (s *ideaCrawlerServer) makeHTTPClientRawChrome(j *job) (fetchbot.Doer, erro
 	return &Doer{j.cd, j, semaphore.NewWeighted(int64(j.opts.MaxConcurrentRequests)), s}, nil
 }
 
-func (s *ideaCrawlerServer) makeHTTPClientLoginChrome(j *job) (fetchbot.Doer, error) {
+func (s *ideaCrawlerWorker) makeHTTPClientLoginChrome(j *job) (fetchbot.Doer, error) {
 	j.opts.Impolite = true // Always impolite in Chrome mode.
 	if j.opts.ChromeBinary == "" {
 		j.opts.ChromeBinary = "/usr/lib64/chromium-browser/headless_shell"
@@ -599,7 +600,7 @@ func (s *ideaCrawlerServer) makeHTTPClientLoginChrome(j *job) (fetchbot.Doer, er
 	return &Doer{j.cd, j, semaphore.NewWeighted(int64(j.opts.MaxConcurrentRequests)), s}, nil
 }
 
-func (s *ideaCrawlerServer) RunJob(subID string, j *job) {
+func (s *ideaCrawlerWorker) RunJob(subID string, j *job) {
 	err := j.setupJobLogger(subID)
 	if err != nil {
 		log.Printf("setupJobLogger failed: %s", err)
@@ -780,4 +781,108 @@ func (s *ideaCrawlerServer) RunJob(subID string, j *job) {
 		}
 	}
 	q.Block()
+}
+
+func (j *job) checkEnqueueEligibility(nurl string, anchorText string) bool {
+	var reqMatch = true
+	var followMatch = true
+
+	if (j.callbackURLRegexp != nil && j.callbackURLRegexp.MatchString(nurl) == false) || (j.callbackAnchorTextRegexp != nil && j.callbackAnchorTextRegexp.MatchString(anchorText) == false) {
+		reqMatch = false
+	}
+	if j.followURLRegexp != nil && j.followURLRegexp.MatchString(nurl) == false {
+		followMatch = false
+	}
+	if !reqMatch && !followMatch {
+		return false
+	}
+	return true
+}
+
+func (j *job) enqueueLinks(ctx *fetchbot.Context, doc *goquery.Document, urlDepth int32, requestURL *url.URL) {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	var SendMethod = "GET"
+	if j.opts.CheckContent == true {
+		SendMethod = "HEAD"
+	}
+	var urlMap = make(map[string]bool)
+	doc.Find("a[href]").Each(func(i int, s *goquery.Selection) {
+		val, _ := s.Attr("href")
+		anchorText := strings.TrimSpace(s.Text())
+
+		// Resolve address
+		u, err := requestURL.Parse(val)
+		if err != nil {
+			j.log.Printf("enqueuelinks: resolve URL %s - %s\n", val, err)
+			return
+		}
+		normFlags := purell.FlagsSafe
+		if j.opts.UnsafeNormalizeURL == true {
+			normFlags = purell.FlagsSafe | purell.FlagRemoveFragment | purell.FlagRemoveDirectoryIndex
+			// Remove query params
+			u.RawQuery = ""
+		}
+		nurl := purell.NormalizeURL(u, normFlags)
+		if j.subscriber.analyzedURLConnected == true {
+			urlMap[nurl] = true
+		}
+
+		if j.checkEnqueueEligibility(nurl, anchorText) == false {
+			return
+		}
+
+		if !j.duplicates[nurl] {
+			if j.opts.SeedUrl != "" && (!j.opts.FollowOtherDomains && u.Hostname() != j.domainname) {
+				j.duplicates[nurl] = true
+				return
+			}
+			parsedURL, err := url.Parse(nurl)
+			if err != nil {
+				j.log.Println(err)
+				return
+
+			}
+
+			cmd := CrawlCommand{
+				method:     SendMethod,
+				url:        parsedURL,
+				metaStr:    ctx.Cmd.(CrawlCommand).MetaStr(),
+				urlDepth:   urlDepth,
+				anchorText: anchorText,
+			}
+			//cmd, err := CreateCommand(SendMethod, nurl, "", urlDepth)
+			//if err != nil {
+			//	job.log.Println(err)
+			//	return
+			//}
+			j.log.Printf("Enqueueing URL: %s", nurl)
+			if err := ctx.Q.Send(cmd); err != nil {
+				j.log.Printf("error: enqueue head %s - %s", nurl, err)
+			} else {
+				j.duplicates[nurl] = true
+			}
+		}
+	})
+	j.log.Println("Status of analyzed url: ", j.subscriber.analyzedURLConnected)
+	if j.subscriber.analyzedURLConnected == true {
+		if j.subscriber.connected == false {
+			return
+		}
+
+		urlList := pb.UrlList{}
+		for url := range urlMap {
+			urlList.Url = append(urlList.Url, url)
+		}
+		urlList.MetaStr = ctx.Cmd.(CrawlCommand).MetaStr()
+		urlList.UrlDepth = urlDepth
+
+		select {
+		case <-j.subscriber.stopAnalyzedURLChan:
+			j.subscriber.analyzedURLConnected = false
+			return
+		case j.subscriber.analyzedURLChan <- urlList:
+			return
+		}
+	}
 }

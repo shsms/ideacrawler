@@ -26,9 +26,8 @@ func startTestServer() (string, error) {
 		return "", err
 	}
 	serverPort = strconv.Itoa(port)
-	cliParams.ListenAddress = "127.0.0.1"
-	cliParams.ListenPort = serverPort
-	go startServer()
+	cliParams.ClientListenAddress = "127.0.0.1:" + serverPort
+	go startCrawlerWorker(modeStandalone)
 	serverRunning = true
 	time.Sleep(1 * time.Second)
 	return serverPort, nil
