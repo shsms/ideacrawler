@@ -1,7 +1,7 @@
 GOPATHDIR=$(firstword $(subst :, ,${GOPATH}))
 GOBIN=$(GOPATHDIR)/bin
 
-default: build
+default: build test
 
 clean:
 	if [ -d build ]; then rm -rf build; fi
@@ -24,3 +24,6 @@ buildall: clean proto build
 
 install: build
 	cp build/ideacrawler $(GOBIN)/
+
+test:
+	go test
