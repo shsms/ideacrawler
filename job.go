@@ -50,11 +50,10 @@ type job struct {
 	// DoneListeners.  There will be a despatcher goroutine that will forward the doneChan info to
 	// all doneListeners.
 	// TODO: Needs to be replaced with close(chan) signals.
-	doneListeners        []chan jobDoneSignal
-	registerDoneListener chan chan jobDoneSignal
-	doneChan             chan jobDoneSignal
-	randChan             <-chan int // for random number between min and max norm distributed
-	log                  *log.Logger
+	doneListeners []chan jobDoneSignal
+	doneChan      chan jobDoneSignal
+	randChan      <-chan int // for random number between min and max norm distributed
+	log           *log.Logger
 }
 
 func (j *job) sendPageHTML(ctx *fetchbot.Context, phtml pb.PageHTML) {
@@ -88,24 +87,6 @@ func (j *job) setupJobLogger(subID string) error {
 	}
 	j.log = log.New(logFP, subID+": ", log.LstdFlags|log.Lshortfile)
 	return nil
-}
-
-// TODO: replace with goroutines listen for close of doneChan, instead
-// of having a custom signal broadcaster.
-func (j *job) doneListenersBroadcaster() {
-	j.doneListeners = []chan jobDoneSignal{}
-registerDoneLoop:
-	for {
-		select {
-		case vv := <-j.registerDoneListener:
-			j.doneListeners = append(j.doneListeners, vv)
-		case jds := <-j.doneChan:
-			for _, ww := range j.doneListeners {
-				ww <- jds
-			}
-			break registerDoneLoop
-		}
-	}
 }
 
 func (j *job) fetchErrorHandler(ctx *fetchbot.Context, res *http.Response, err error) {
@@ -603,13 +584,12 @@ func (s *ideaCrawlerWorker) RunJob(subID string, j *job) {
 		return
 	}
 	j.log.Println("starting job -", subID)
-	go j.doneListenersBroadcaster()
 	defer func() {
 		close(j.subscriber.sendChan)
 		j.running = false
 
 		j.done = true
-		j.doneChan <- jobDoneSignal{}
+		close(j.doneChan)
 		j.log.Println("stopping job -", subID)
 	}()
 
@@ -664,10 +644,8 @@ func (s *ideaCrawlerWorker) RunJob(subID string, j *job) {
 
 	// handle cancel requests
 	go func() {
-		jobDoneChan := make(chan jobDoneSignal)
-		j.registerDoneListener <- jobDoneChan
 		select {
-		case <-jobDoneChan:
+		case <-j.doneChan:
 			return
 		case <-j.cancelChan:
 			q.Cancel()
@@ -677,8 +655,6 @@ func (s *ideaCrawlerWorker) RunJob(subID string, j *job) {
 
 	// handle stuff coming through the addPage function
 	go func() {
-		jobDoneChan := make(chan jobDoneSignal)
-		j.registerDoneListener <- jobDoneChan
 	handlePagesLoop:
 		for {
 			select {
@@ -755,7 +731,7 @@ func (s *ideaCrawlerWorker) RunJob(subID string, j *job) {
 					}
 				}
 				j.log.Println("Enqueued page:", pr.Url)
-			case <-jobDoneChan:
+			case <-j.doneChan:
 				break handlePagesLoop
 			}
 		}

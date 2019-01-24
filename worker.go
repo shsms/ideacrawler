@@ -48,11 +48,8 @@ type ideaCrawlerWorker struct {
 }
 
 type newJobStatus struct {
-	sub                  pb.Subscription
-	subscriber           *subscriber
-	cancelChan           chan cancelSignal
-	registerDoneListener chan chan jobDoneSignal
-	err                  error
+	job *job
+	err error
 }
 
 type newJob struct {
@@ -116,11 +113,8 @@ func (s *ideaCrawlerWorker) addNewJob(nj newJob) {
 	domainname, err := domainNameFromURL(nj.opts.SeedUrl)
 	var jobStatusFailureMessage = func(err error) newJobStatus {
 		return newJobStatus{
-			sub:                  pb.Subscription{},
-			subscriber:           &subscriber{},
-			cancelChan:           nil,
-			registerDoneListener: nil,
-			err:                  err,
+			job: nil,
+			err: err,
 		}
 	}
 	if err != nil {
@@ -172,9 +166,8 @@ func (s *ideaCrawlerWorker) addNewJob(nj newJob) {
 		}
 	}
 	canc := make(chan cancelSignal)
-	regDoneC := make(chan chan jobDoneSignal)
 	randChan := make(chan int, 5)
-	s.jobs[sub.Subcode] = &job{
+	j := &job{
 		domainname:               domainname,
 		opts:                     nj.opts,
 		sub:                      sub,
@@ -189,18 +182,15 @@ func (s *ideaCrawlerWorker) addNewJob(nj newJob) {
 		duplicates:               map[string]bool{},
 		cancelChan:               canc,
 		doneListeners:            []chan jobDoneSignal{},
-		registerDoneListener:     regDoneC,
 		doneChan:                 make(chan jobDoneSignal),
 		randChan:                 randChan,
 		log:                      nil,
 	}
+	s.jobs[sub.Subcode] = j
 	go randomGenerator(int(nj.opts.MinDelay), int(nj.opts.MaxDelay), randChan)
 	nj.retChan <- newJobStatus{
-		sub:                  sub,
-		subscriber:           subr,
-		cancelChan:           canc,
-		registerDoneListener: regDoneC,
-		err:                  nil,
+		job: j,
+		err: nil,
 	}
 }
 
@@ -213,20 +203,14 @@ func (s *ideaCrawlerWorker) jobManager(newJobChan <-chan newJob, newSubChan <-ch
 			job := s.jobs[ns.sub.Subcode]
 			if job == nil {
 				ns.retChan <- newJobStatus{
-					sub:                  pb.Subscription{},
-					subscriber:           &subscriber{},
-					cancelChan:           nil,
-					registerDoneListener: nil,
-					err:                  errors.New("Unable to find subcode - " + ns.sub.Subcode),
+					job: nil,
+					err: errors.New("Unable to find subcode - " + ns.sub.Subcode),
 				}
 				continue
 			}
 			ns.retChan <- newJobStatus{
-				sub:                  job.sub,
-				subscriber:           job.subscriber,
-				cancelChan:           job.cancelChan,
-				registerDoneListener: job.registerDoneListener,
-				err:                  nil,
+				job: job,
+				err: nil,
 			}
 		default:
 			time.Sleep(50 * time.Millisecond)
@@ -270,9 +254,8 @@ func (s *ideaCrawlerWorker) AddPages(stream pb.IdeaCrawler_AddPagesServer) error
 	if njs.err != nil {
 		return njs.err
 	}
-	jobDoneChan := make(chan jobDoneSignal)
-	njs.registerDoneListener <- jobDoneChan
-	reqChan := njs.subscriber.reqChan
+	job := njs.job
+	reqChan := job.subscriber.reqChan
 	reqChan <- *pgreq1
 	log.Printf("Adding new page for job '%v': %v", pgreq1.Sub.Subcode, pgreq1.Url)
 	for {
@@ -289,7 +272,7 @@ func (s *ideaCrawlerWorker) AddPages(stream pb.IdeaCrawler_AddPagesServer) error
 			return errors.New(emsg)
 		}
 		select {
-		case <-jobDoneChan:
+		case <-job.doneChan:
 			return nil
 		default:
 			time.Sleep(10 * time.Millisecond)
@@ -313,7 +296,7 @@ func (s *ideaCrawlerWorker) CancelJob(ctx context.Context, sub *pb.Subscription)
 		log.Println("ERR - Cancel failed -", njs.err.Error())
 		return &pb.Status{Success: false, Error: njs.err.Error()}, njs.err
 	}
-	njs.cancelChan <- cancelSignal{}
+	njs.job.cancelChan <- cancelSignal{}
 	return &pb.Status{Success: true, Error: ""}, nil
 }
 
@@ -331,18 +314,19 @@ func (s *ideaCrawlerWorker) GetAnalyzedURLs(sub *pb.Subscription, ostream pb.Ide
 		log.Println("ERR - Get analyzed urls request failed -", njs.err.Error())
 		return njs.err
 	}
+	job := njs.job
 	analyzedURLChan := make(chan pb.UrlList, 100)
 	stopAnalyzedURLChan := make(chan bool, 3)
 
-	njs.subscriber.analyzedURLConnected = true
-	njs.subscriber.analyzedURLChan = analyzedURLChan
-	njs.subscriber.stopAnalyzedURLChan = stopAnalyzedURLChan
+	job.subscriber.analyzedURLConnected = true
+	job.subscriber.analyzedURLChan = analyzedURLChan
+	job.subscriber.stopAnalyzedURLChan = stopAnalyzedURLChan
 	log.Println("Analyzed urls request registered")
-	for urlList := range njs.subscriber.analyzedURLChan {
+	for urlList := range job.subscriber.analyzedURLChan {
 		err := ostream.Send(&urlList)
 		if err != nil {
-			log.Printf("Failed to send analyzed urls to client. No longer trying - %v. Error - %v\n", njs.sub.Subcode, err)
-			njs.subscriber.stopAnalyzedURLChan <- true
+			log.Printf("Failed to send analyzed urls to client. No longer trying - %v. Error - %v\n", job.sub.Subcode, err)
+			job.subscriber.stopAnalyzedURLChan <- true
 			return err
 		}
 	}
@@ -356,30 +340,31 @@ func (s *ideaCrawlerWorker) AddDomainAndListen(opts *pb.DomainOpt, ostream pb.Id
 	if njs.err != nil {
 		return njs.err
 	}
-	if njs.subscriber.connected == false {
+	job := njs.job
+	if job.subscriber.connected == false {
 		return errors.New("Subscriber object not created")
 	}
-	log.Println("Sending subscription object to client:", njs.sub.Subcode)
+	log.Println("Sending subscription object to client:", job.sub.Subcode)
 	// send an empty pagehtml with just the subscription object,  as soon as job starts.
 	err := ostream.Send(&pb.PageHTML{
 		Success:        true,
 		Error:          "subscription.object",
-		Sub:            &njs.sub,
+		Sub:            &job.sub,
 		Url:            "",
 		Httpstatuscode: sc.Subscription,
 		Content:        []byte{},
 	})
 	if err != nil {
-		log.Printf("Failed to send sub object to client. Cancelling job - %v. Error - %v\n", njs.sub.Subcode, err)
-		njs.subscriber.stopChan <- true
+		log.Printf("Failed to send sub object to client. Cancelling job - %v. Error - %v\n", job.sub.Subcode, err)
+		job.subscriber.stopChan <- true
 		return err
 	}
 
-	for pagehtml := range njs.subscriber.sendChan {
+	for pagehtml := range job.subscriber.sendChan {
 		err := ostream.Send(&pagehtml)
 		if err != nil {
-			log.Printf("Failed to send page back to client. No longer trying - %v. Error - %v\n", njs.sub.Subcode, err)
-			njs.subscriber.stopChan <- true
+			log.Printf("Failed to send page back to client. No longer trying - %v. Error - %v\n", job.sub.Subcode, err)
+			job.subscriber.stopChan <- true
 			return err
 		}
 	}
