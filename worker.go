@@ -136,11 +136,6 @@ func (s *ideaCrawlerWorker) addNewJob(nj newJob) {
 		Datetime:   emptyTS,
 	}
 
-	freq, err := ptypes.Duration(nj.opts.Frequency)
-	if nj.opts.Repeat == true && err != nil {
-		nj.retChan <- jobStatusFailureMessage(fmt.Errorf("Bad value for DomainOpt.Frequency field - %s - %s", domainname, err))
-		return
-	}
 	subr := &subscriber{}
 	if nj.subscribe == true {
 		subr = &subscriber{
@@ -183,10 +178,6 @@ func (s *ideaCrawlerWorker) addNewJob(nj newJob) {
 		domainname:               domainname,
 		opts:                     nj.opts,
 		sub:                      sub,
-		prevRun:                  time.Time{},
-		nextRun:                  time.Time{},
-		frequency:                freq,
-		runNumber:                0,
 		running:                  false,
 		done:                     false,
 		seqnum:                   0,
@@ -248,31 +239,8 @@ func (s *ideaCrawlerWorker) jobManager(newJobChan <-chan newJob, newSubChan <-ch
 				delete(s.jobs, domainname)
 				continue
 			}
-			if job.prevRun.IsZero() && job.nextRun.IsZero() {
-				if job.opts.Firstrun != nil && job.opts.Firstrun.Seconds > 0 {
-					job.nextRun = time.Unix(job.opts.Firstrun.Seconds, 0)
-				} else {
-					job.prevRun = time.Now()
-					job.running = true
-					go s.RunJob(domainname, job)
-					continue
-				}
-			}
-			if job.prevRun.IsZero() {
-				if time.Now().After(job.nextRun) {
-					job.prevRun = time.Now()
-					job.running = true
-					go s.RunJob(domainname, job)
-					continue
-				}
-				continue
-			}
-			if time.Now().After(job.prevRun.Add(job.frequency)) {
-				job.prevRun = time.Now()
-				job.running = true
-				go s.RunJob(domainname, job)
-				continue
-			}
+			job.running = true
+			go s.RunJob(domainname, job)
 		}
 		time.Sleep(50 * time.Millisecond)
 	}

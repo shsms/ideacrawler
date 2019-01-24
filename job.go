@@ -34,10 +34,6 @@ type job struct {
 	domainname               string
 	opts                     *pb.DomainOpt
 	sub                      pb.Subscription
-	prevRun                  time.Time
-	nextRun                  time.Time
-	frequency                time.Duration
-	runNumber                int32
 	running                  bool
 	done                     bool
 	seqnum                   int32
@@ -616,7 +612,6 @@ func (s *ideaCrawlerWorker) RunJob(subID string, j *job) {
 		j.doneChan <- jobDoneSignal{}
 		j.log.Println("stopping job -", subID)
 	}()
-	j.runNumber++
 
 	mux := fetchbot.NewMux()
 	mux.HandleErrors(fetchbot.HandlerFunc(j.fetchErrorHandler))

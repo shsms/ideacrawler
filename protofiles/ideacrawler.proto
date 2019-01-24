@@ -21,7 +21,6 @@ syntax = "proto3";
 package protofiles;
 
 import "google/protobuf/timestamp.proto";
-import "google/protobuf/duration.proto";
 
 service IdeaCrawler  {
   rpc AddDomainAndListen(DomainOpt) returns (stream PageHTML) {}
@@ -63,15 +62,6 @@ message DomainOpt {
   bool   impolite = 9;
   //TODO
   int32  depth = 10;
-  //TODO: maybe just remove all scheduling features, immediate jobs only
-  bool   repeat = 11;
-  
-  // needs min limit of 5mins, ideally 1hour
-  google.protobuf.Duration frequency = 12;
-
-  // time of first run, if this is saturday 10pm, frequency is 2 weeks. ideally atleast 10 mins away.
-  // it will continue to run at that time every 2 weeks
-  google.protobuf.Timestamp firstrun = 13;
 
   // Callback check order -
   //   (1) - callbackUrlRegexp
