@@ -38,6 +38,8 @@ github.com/phayes/freeport v0.0.0-20171002181615-b8543db493a5 h1:rZQtoozkfsiNs36
 github.com/phayes/freeport v0.0.0-20171002181615-b8543db493a5/go.mod h1:iIss55rKnNBTvrwdmkUpLnDpZoAHvWaiq5+iMmen4AE=
 github.com/shsms-i2i/sflag v0.0.0-20160229091130-0ec38aa16580 h1:DrK7wF37tBm4wtWPhhIayS5mKc/9Ob6dXK+Rs8UE5Pk=
 github.com/shsms-i2i/sflag v0.0.0-20160229091130-0ec38aa16580/go.mod h1:Pbo027wS1P5l1qtsiCsQoZ+QuFXIIq3QYtgvSdKJPNs=
+github.com/shsms/sflag v0.0.0-20160229091130-0ec38aa16580 h1:7SvBhRRxX6ghEIadNLHcb1E/B21CabGyzNmTpnV4/2k=
+github.com/shsms/sflag v0.0.0-20160229091130-0ec38aa16580/go.mod h1:bBR+Mo9uC4Exjvzd4vPt6y7aKhDUutgXgJHcaFgPwz8=
 github.com/temoto/robotstxt-go v0.0.0-20180810133444-97ee4a9ee6ea h1:uTsERZ8h4VnqCoMip8dLd+uvk1R1xR2AviWn+pfoUa0=
 github.com/temoto/robotstxt-go v0.0.0-20180810133444-97ee4a9ee6ea/go.mod h1:1g9HBNqEaZuLUJPl/V1bnFaplEBI8J/ZSRTtakhF9cM=
 golang.org/x/lint v0.0.0-20180702182130-06c8688daad7/go.mod h1:UVdnD1Gm6xHRNCYTkRU2/jEulfH38KcIWyp/GAMgvoE=

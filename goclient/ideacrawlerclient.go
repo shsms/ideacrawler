@@ -35,6 +35,11 @@ import (
 
 type PageHTML = pb.PageHTML
 
+type Worker struct {
+	Conn   *grpc.ClientConn
+	Client pb.IdeaCrawlerClient
+}
+
 type CrawlJob struct {
 	SeedURL                  string
 	MinDelay                 int32
@@ -71,14 +76,11 @@ type CrawlJob struct {
 	CallbackAnchorTextRegexp string
 	CleanUpFunc              func()
 
-	dopt           *pb.DomainOpt
-	svrHost        string
-	svrPort        string
 	running        bool
-	client         pb.IdeaCrawlerClient
 	addPagesClient pb.IdeaCrawler_AddPagesClient
 	sub            *pb.Subscription
 
+	Worker       *Worker
 	Callback     func(*PageHTML, *CrawlJob)
 	usePageChan  bool
 	PageChan     <-chan *pb.PageHTML
@@ -89,7 +91,7 @@ type CrawlJob struct {
 	CallbackSeedUrl     bool
 }
 
-func NewCrawlJob(svrHost, svrPort string) *CrawlJob {
+func (w *Worker) NewCrawlJob() *CrawlJob {
 	var cj = &CrawlJob{}
 
 	cj.MinDelay = 5
@@ -99,8 +101,7 @@ func NewCrawlJob(svrHost, svrPort string) *CrawlJob {
 	cj.Useragent = "Fetchbot"
 	cj.MaxConcurrentRequests = 5
 
-	cj.svrHost = svrHost
-	cj.svrPort = svrPort
+	cj.Worker = w
 
 	return cj
 }
@@ -163,7 +164,7 @@ func (cj *CrawlJob) SetAnalyzedURL(analyzedURLChan chan *pb.UrlList) {
 		log.Println("No job subscription. SetAnalyzedURLs failed.")
 		return
 	}
-	urlstream, err := cj.client.GetAnalyzedURLs(context.Background(), cj.sub, grpc.MaxCallRecvMsgSize((2*1024*1024*1024)-1))
+	urlstream, err := cj.Worker.Client.GetAnalyzedURLs(context.Background(), cj.sub, grpc.MaxCallRecvMsgSize((2*1024*1024*1024)-1))
 	if err != nil {
 		log.Println("Box is possibly down. SetAnalyzedURLs failed:", err)
 		return
@@ -195,7 +196,7 @@ func (cj *CrawlJob) AddPage(url, metaStr string) error {
 	}
 	if cj.addPagesClient == nil {
 		var err error
-		cj.addPagesClient, err = cj.client.AddPages(context.Background())
+		cj.addPagesClient, err = cj.Worker.Client.AddPages(context.Background())
 		if err != nil {
 			cj.addPagesClient = nil
 			return err
@@ -217,7 +218,7 @@ func (cj *CrawlJob) AddJS(typ pb.PageReqType, url, js, metaStr string) error {
 	}
 	if cj.addPagesClient == nil {
 		var err error
-		cj.addPagesClient, err = cj.client.AddPages(context.Background())
+		cj.addPagesClient, err = cj.Worker.Client.AddPages(context.Background())
 		if err != nil {
 			cj.addPagesClient = nil
 			return err
@@ -233,12 +234,7 @@ func (cj *CrawlJob) AddJS(typ pb.PageReqType, url, js, metaStr string) error {
 }
 
 func (cj *CrawlJob) Start() {
-	go cj.Run(nil)
-	time.Sleep(2 * time.Second)
-}
-
-func (cj *CrawlJob) StartWithConn(tcpconn net.Conn) {
-	go cj.Run(tcpconn)
+	go cj.Run()
 	time.Sleep(2 * time.Second)
 }
 
@@ -248,7 +244,7 @@ func (cj *CrawlJob) IsAlive() bool {
 
 func (cj *CrawlJob) Stop() {
 	if cj.IsAlive() {
-		cj.client.CancelJob(context.Background(), cj.sub)
+		cj.Worker.Client.CancelJob(context.Background(), cj.sub)
 	}
 }
 
@@ -256,7 +252,28 @@ func (cj *CrawlJob) OnFinish(onFinishFunc func()) {
 	cj.CleanUpFunc = onFinishFunc
 }
 
-func (cj *CrawlJob) Run(tcpconn net.Conn) {
+func NewWorker(socket string, tcpconn net.Conn) (*Worker, error) {
+	var opts []grpc.DialOption
+	opts = append(opts, grpc.WithInsecure())
+	if tcpconn != nil {
+		opts = append(opts, grpc.WithDialer(func(string, time.Duration) (net.Conn, error) {
+			return tcpconn, nil
+		}))
+		opts = append(opts, grpc.WithDisableRetry())
+	}
+	conn, err := grpc.Dial(socket, opts...)
+	if err != nil {
+		return nil, err
+	}
+	client := pb.NewIdeaCrawlerClient(conn)
+	return &Worker{conn, client}, nil
+}
+
+func (w *Worker) Close() {
+	w.Conn.Close()
+}
+
+func (cj *CrawlJob) Run() {
 	cj.running = true
 	defer func() {
 		cj.running = false
@@ -271,21 +288,7 @@ func (cj *CrawlJob) Run(tcpconn net.Conn) {
 		log.Fatal("Please set pageChan to get callbacks on,  or provide a callback function")
 	}
 
-	var opts []grpc.DialOption
-	opts = append(opts, grpc.WithInsecure())
-	if tcpconn != nil {
-		opts = append(opts, grpc.WithDialer(func(string, time.Duration) (net.Conn, error) {
-			return tcpconn, nil
-		}))
-	}
-	conn, err := grpc.Dial(cj.svrHost+":"+cj.svrPort, opts...)
-	if err != nil {
-		log.Fatalf("fail to dial: %v", err)
-	}
-	defer conn.Close()
-	cj.client = pb.NewIdeaCrawlerClient(conn)
-
-	cj.dopt = &pb.DomainOpt{
+	dopt := &pb.DomainOpt{
 		SeedUrl:                  cj.SeedURL,
 		MinDelay:                 cj.MinDelay,
 		MaxDelay:                 cj.MaxDelay,
@@ -321,7 +324,7 @@ func (cj *CrawlJob) Run(tcpconn net.Conn) {
 		CallbackAnchorTextRegexp: cj.CallbackAnchorTextRegexp,
 		CallbackSeedUrl:          cj.CallbackSeedUrl,
 	}
-	pagestream, err := cj.client.AddDomainAndListen(context.Background(), cj.dopt, grpc.MaxCallRecvMsgSize((2*1024*1024*1024)-1))
+	pagestream, err := cj.Worker.Client.AddDomainAndListen(context.Background(), dopt, grpc.MaxCallRecvMsgSize((2*1024*1024*1024)-1))
 	if err != nil {
 		log.Println("Box is possibly down. AddDomainAndListen failed:", err)
 		return

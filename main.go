@@ -35,8 +35,8 @@ import (
 var cliParams = struct {
 	DialAddress          string "Interface to dial from.  Defaults to OS defined routes|"
 	SaveLoginPages       string "Saves login pages in this path. Don't save them if empty."
-	ClientListenAddress  string "Interface to listen on. Defaults to 127.0.0.1|127.0.0.1:2345"
-	ClusterListenAddress string "Interface to listen on. Defaults to 127.0.0.1|127.0.0.1:2346"
+	ClientListenAddress  string "Interface to listen on. Defaults to 127.0.0.1:2345|127.0.0.1:2345"
+	ClusterListenAddress string "Interface to listen on. Defaults to 0.0.0.0:2346|:2346"
 	LogPath              string "Logpath to log into. Default is stdout."
 	Mode                 string "Instance mode - standalone/worker/server|standalone"
 	Servers              string "In worker mode, the hostname of server to connect to."

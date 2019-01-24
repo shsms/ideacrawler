@@ -18,6 +18,7 @@ require (
 	github.com/peterbourgon/diskv v2.0.1+incompatible
 	github.com/phayes/freeport v0.0.0-20171002181615-b8543db493a5
 	github.com/shsms-i2i/sflag v0.0.0-20160229091130-0ec38aa16580
+	github.com/shsms/sflag v0.0.0-20160229091130-0ec38aa16580
 	github.com/temoto/robotstxt-go v0.0.0-20180810133444-97ee4a9ee6ea
 	golang.org/x/net v0.0.0-20190107155100-1a61f4433d85
 	golang.org/x/sync v0.0.0-20181221193216-37e7f081c4d4

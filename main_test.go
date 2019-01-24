@@ -92,7 +92,12 @@ func TestSinglePage(t *testing.T) {
 
 	for _, dp := range dataPoints {
 		t.Run(dp.name, func(t *testing.T) {
-			z := gc.NewCrawlJob("127.0.0.1", port)
+			w, err := gc.NewWorker("127.0.0.1:"+port, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			z := w.NewCrawlJob()
 
 			z.SetPageChan(gc.NewPageChan())
 			z.SeedURL = dp.seedURL
@@ -163,7 +168,12 @@ func TestMultiSiteFilter(t *testing.T) {
 
 	for _, dp := range dataPoints {
 		t.Run(dp.name, func(t *testing.T) {
-			z := gc.NewCrawlJob("127.0.0.1", port)
+			w, err := gc.NewWorker("127.0.0.1:"+port, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			z := w.NewCrawlJob()
 
 			z.SetPageChan(gc.NewPageChan())
 			z.SeedURL = dp.seedURL
