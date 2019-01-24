@@ -97,13 +97,12 @@ func TestSinglePage(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			z := w.NewCrawlJob()
-
-			z.SetPageChan(gc.NewPageChan())
-			z.SeedURL = dp.seedURL
-			z.Chrome = dp.chrome
-			z.ChromeBinary = "/usr/bin/chromium"
-			z.Follow = false
+			z := w.NewCrawlJob(
+				gc.SeedURL(dp.seedURL),
+				gc.Chrome(dp.chrome, "/usr/bin/chromium"),
+				gc.NoFollow(),
+				gc.PageChan(gc.NewPageChan()),
+			)
 
 			z.Start()
 
@@ -173,19 +172,17 @@ func TestMultiSiteFilter(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			z := w.NewCrawlJob()
-
-			z.SetPageChan(gc.NewPageChan())
-			z.SeedURL = dp.seedURL
-			z.Chrome = dp.chrome
-			z.ChromeBinary = "/usr/bin/chromium"
-			z.Follow = true
-			z.Depth = dp.depth
-			z.MinDelay = 1
-			z.Impolite = true
-			z.MaxIdleTime = dp.maxIdleTime
-			z.CallbackUrlRegexp = dp.callbackUrlRegexp
-			z.FollowUrlRegexp = dp.followUrlRegexp
+			z := w.NewCrawlJob(
+				gc.SeedURL(dp.seedURL),
+				gc.Chrome(dp.chrome, "/usr/bin/chromium"),
+				gc.Depth(dp.depth),
+				gc.MinDelay(1),
+				gc.Impolite(),
+				gc.MaxIdleTime(dp.maxIdleTime),
+				gc.CallbackURLRegexp(dp.callbackUrlRegexp),
+				gc.FollowURLRegexp(dp.followUrlRegexp),
+				gc.PageChan(gc.NewPageChan()),
+			)
 
 			z.Start()
 

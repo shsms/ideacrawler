@@ -26,8 +26,6 @@ import (
 	"net"
 	"time"
 
-	google_protobuf1 "github.com/golang/protobuf/ptypes/duration"
-	google_protobuf "github.com/golang/protobuf/ptypes/timestamp"
 	pb "github.com/ideas2it/ideacrawler/protofiles"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -41,69 +39,51 @@ type Worker struct {
 }
 
 type CrawlJob struct {
-	SeedURL                  string
-	MinDelay                 int32
-	MaxDelay                 int32
-	MaxIdleTime              int32
-	Follow                   bool
-	CallbackUrlRegexp        string
-	FollowUrlRegexp          string
-	CallbackXpathMatch       []*pb.KVP
-	CallbackXpathRegexp      []*pb.KVP
-	MaxConcurrentRequests    int32
-	Useragent                string
-	Impolite                 bool
-	Depth                    int32
-	Repeat                   bool
-	Frequency                *google_protobuf1.Duration
-	Firstrun                 *google_protobuf.Timestamp
-	UnsafeNormalizeURL       bool
-	Login                    bool
-	LoginUrl                 string
-	LoginJS                  string
-	LoginPayload             []*pb.KVP
-	LoginParseFields         bool
-	LoginParseXpath          []*pb.KVP
-	LoginSuccessCheck        *pb.KVP
-	CheckLoginAfterEachPage  bool
-	Chrome                   bool
-	ChromeBinary             string
-	DomLoadTime              int32
-	NetworkIface             string
-	CancelOnDisconnect       bool
-	CheckContent             bool
-	Prefetch                 bool
-	CallbackAnchorTextRegexp string
-	CleanUpFunc              func()
+	seedURL                  string
+	minDelay                 int32
+	maxDelay                 int32
+	maxIdleTime              int32
+	follow                   bool
+	callbackURLRegexp        string
+	followURLRegexp          string
+	callbackXpathMatch       []*pb.KVP // todo
+	callbackXpathRegexp      []*pb.KVP // todo
+	maxConcurrentRequests    int32
+	useragent                string
+	impolite                 bool
+	depth                    int32
+	unsafeNormalizeURL       bool
+	login                    bool      // todo
+	loginUrl                 string    // todo
+	loginJS                  string    // todo
+	loginPayload             []*pb.KVP // todo
+	loginParseFields         bool      // todo
+	loginParseXpath          []*pb.KVP // todo
+	loginSuccessCheck        *pb.KVP   // todo
+	checkLoginAfterEachPage  bool
+	chrome                   bool
+	chromeBinary             string
+	domLoadTime              int32
+	networkIface             string
+	cancelOnDisconnect       bool
+	checkContent             bool
+	prefetch                 bool
+	callbackAnchorTextRegexp string
+	cleanUpFunc              func()
 
 	running        bool
 	addPagesClient pb.IdeaCrawler_AddPagesClient
 	sub            *pb.Subscription
 
-	Worker       *Worker
-	Callback     func(*PageHTML, *CrawlJob)
-	usePageChan  bool
-	PageChan     <-chan *pb.PageHTML
-	implPageChan chan *pb.PageHTML
-
+	Worker              *Worker
+	callback            func(*PageHTML, *CrawlJob)
+	usePageChan         bool
+	PageChan            <-chan *pb.PageHTML
+	implPageChan        chan *pb.PageHTML
+	useAnalyzedURLChan  bool
 	implAnalyzedURLChan chan *pb.UrlList
 	AnalyzedURLChan     <-chan *pb.UrlList
-	CallbackSeedUrl     bool
-}
-
-func (w *Worker) NewCrawlJob() *CrawlJob {
-	var cj = &CrawlJob{}
-
-	cj.MinDelay = 5
-	cj.Follow = true
-	cj.Depth = -1
-	cj.DomLoadTime = 5
-	cj.Useragent = "Fetchbot"
-	cj.MaxConcurrentRequests = 5
-
-	cj.Worker = w
-
-	return cj
+	callbackSeedURL     bool
 }
 
 type KVMap = map[string]string
@@ -113,53 +93,50 @@ const (
 	PageReqType_JSCRIPT   = pb.PageReqType_JSCRIPT
 )
 
-func (cj *CrawlJob) SetLogin(loginUrl string, loginPayload, loginParseXpath KVMap, loginSuccessCheck KVMap) {
-	cj.Login = true
-	cj.LoginUrl = loginUrl
-	for k, v := range loginPayload {
-		cj.LoginPayload = append(cj.LoginPayload, &pb.KVP{Key: k, Value: v})
+func NewWorker(socket string, tcpconn net.Conn) (*Worker, error) {
+	var opts []grpc.DialOption
+	opts = append(opts, grpc.WithInsecure())
+	if tcpconn != nil {
+		opts = append(opts, grpc.WithDialer(func(string, time.Duration) (net.Conn, error) {
+			return tcpconn, nil
+		}))
+		opts = append(opts, grpc.WithDisableRetry())
 	}
-	if len(loginParseXpath) > 0 {
-		cj.LoginParseFields = true
+	conn, err := grpc.Dial(socket, opts...)
+	if err != nil {
+		return nil, err
 	}
-	for k, v := range loginParseXpath {
-		cj.LoginParseXpath = append(cj.LoginParseXpath, &pb.KVP{Key: k, Value: v})
-	}
-
-	for k, v := range loginSuccessCheck {
-		cj.LoginSuccessCheck = &pb.KVP{Key: k, Value: v}
-	}
+	client := pb.NewIdeaCrawlerClient(conn)
+	return &Worker{conn, client}, nil
 }
 
-func (cj *CrawlJob) SetLoginChrome(loginUrl string, loginJS string, loginSuccessCheck KVMap) {
-	cj.Login = true
-	cj.LoginUrl = loginUrl
-	cj.LoginJS = loginJS
-	for k, v := range loginSuccessCheck {
-		cj.LoginSuccessCheck = &pb.KVP{Key: k, Value: v}
+func (w *Worker) Close() {
+	w.Conn.Close()
+}
+
+func (w *Worker) NewCrawlJob(opts ...Option) *CrawlJob {
+	var cj = &CrawlJob{}
+
+	cj.minDelay = 5
+	cj.follow = true
+	cj.depth = -1
+	cj.domLoadTime = 5
+	cj.useragent = "Fetchbot"
+	cj.maxConcurrentRequests = 5
+
+	for _, opt := range opts {
+		opt(cj)
 	}
+
+	cj.Worker = w
+
+	return cj
 }
 
-func (cj *CrawlJob) SetCallbackXpathMatch(mdata KVMap) {
-	for k, v := range mdata {
-		cj.CallbackXpathMatch = append(cj.CallbackXpathMatch, &pb.KVP{Key: k, Value: v})
+func (cj *CrawlJob) initAnalyzedURL() {
+	if cj.useAnalyzedURLChan == false {
+		return
 	}
-}
-
-func (cj *CrawlJob) SetCallbackXpathRegexp(mdata KVMap) {
-	for k, v := range mdata {
-		cj.CallbackXpathRegexp = append(cj.CallbackXpathRegexp, &pb.KVP{Key: k, Value: v})
-	}
-}
-
-func (cj *CrawlJob) SetPageChan(pageChan chan *pb.PageHTML) {
-	cj.usePageChan = true
-	cj.implPageChan = pageChan
-	cj.PageChan = cj.implPageChan
-}
-
-func (cj *CrawlJob) SetAnalyzedURL(analyzedURLChan chan *pb.UrlList) {
-
 	if cj.sub == nil {
 		log.Println("No job subscription. SetAnalyzedURLs failed.")
 		return
@@ -169,8 +146,6 @@ func (cj *CrawlJob) SetAnalyzedURL(analyzedURLChan chan *pb.UrlList) {
 		log.Println("Box is possibly down. SetAnalyzedURLs failed:", err)
 		return
 	}
-	cj.implAnalyzedURLChan = analyzedURLChan
-	cj.AnalyzedURLChan = cj.implAnalyzedURLChan
 	go cj.listenAnalyzedURLs(urlstream)
 }
 
@@ -249,77 +224,56 @@ func (cj *CrawlJob) Stop() {
 }
 
 func (cj *CrawlJob) OnFinish(onFinishFunc func()) {
-	cj.CleanUpFunc = onFinishFunc
-}
-
-func NewWorker(socket string, tcpconn net.Conn) (*Worker, error) {
-	var opts []grpc.DialOption
-	opts = append(opts, grpc.WithInsecure())
-	if tcpconn != nil {
-		opts = append(opts, grpc.WithDialer(func(string, time.Duration) (net.Conn, error) {
-			return tcpconn, nil
-		}))
-		opts = append(opts, grpc.WithDisableRetry())
-	}
-	conn, err := grpc.Dial(socket, opts...)
-	if err != nil {
-		return nil, err
-	}
-	client := pb.NewIdeaCrawlerClient(conn)
-	return &Worker{conn, client}, nil
-}
-
-func (w *Worker) Close() {
-	w.Conn.Close()
+	cj.cleanUpFunc = onFinishFunc
 }
 
 func (cj *CrawlJob) Run() {
 	cj.running = true
 	defer func() {
 		cj.running = false
-		if cj.CleanUpFunc != nil {
-			cj.CleanUpFunc()
+		if cj.cleanUpFunc != nil {
+			cj.cleanUpFunc()
 		}
 	}()
 
-	if cj.usePageChan == true && cj.Callback != nil {
+	if cj.usePageChan == true && cj.callback != nil {
 		log.Fatal("Callback channel and function both can't be used at the same time")
-	} else if cj.usePageChan == false && cj.Callback == nil {
+	} else if cj.usePageChan == false && cj.callback == nil {
 		log.Fatal("Please set pageChan to get callbacks on,  or provide a callback function")
 	}
 
 	dopt := &pb.DomainOpt{
-		SeedUrl:                  cj.SeedURL,
-		MinDelay:                 cj.MinDelay,
-		MaxDelay:                 cj.MaxDelay,
-		NoFollow:                 !cj.Follow,
-		MaxIdleTime:              cj.MaxIdleTime,
-		CallbackUrlRegexp:        cj.CallbackUrlRegexp,
-		FollowUrlRegexp:          cj.FollowUrlRegexp,
-		CallbackXpathMatch:       cj.CallbackXpathMatch,
-		CallbackXpathRegexp:      cj.CallbackXpathRegexp,
-		MaxConcurrentRequests:    cj.MaxConcurrentRequests,
-		Useragent:                cj.Useragent,
-		Impolite:                 cj.Impolite,
-		Depth:                    cj.Depth,
-		UnsafeNormalizeURL:       cj.UnsafeNormalizeURL,
-		Login:                    cj.Login,
-		LoginUrl:                 cj.LoginUrl,
-		LoginJS:                  cj.LoginJS,
-		LoginPayload:             cj.LoginPayload,
-		LoginParseFields:         cj.LoginParseFields,
-		LoginParseXpath:          cj.LoginParseXpath,
-		LoginSuccessCheck:        cj.LoginSuccessCheck,
-		CheckLoginAfterEachPage:  cj.CheckLoginAfterEachPage,
-		Chrome:                   cj.Chrome,
-		ChromeBinary:             cj.ChromeBinary,
-		DomLoadTime:              cj.DomLoadTime,
-		NetworkIface:             cj.NetworkIface,
-		CancelOnDisconnect:       cj.CancelOnDisconnect,
-		CheckContent:             cj.CheckContent,
-		Prefetch:                 cj.Prefetch,
-		CallbackAnchorTextRegexp: cj.CallbackAnchorTextRegexp,
-		CallbackSeedUrl:          cj.CallbackSeedUrl,
+		SeedUrl:                  cj.seedURL,
+		MinDelay:                 cj.minDelay,
+		MaxDelay:                 cj.maxDelay,
+		NoFollow:                 !cj.follow,
+		MaxIdleTime:              cj.maxIdleTime,
+		CallbackUrlRegexp:        cj.callbackURLRegexp,
+		FollowUrlRegexp:          cj.followURLRegexp,
+		CallbackXpathMatch:       cj.callbackXpathMatch,
+		CallbackXpathRegexp:      cj.callbackXpathRegexp,
+		MaxConcurrentRequests:    cj.maxConcurrentRequests,
+		Useragent:                cj.useragent,
+		Impolite:                 cj.impolite,
+		Depth:                    cj.depth,
+		UnsafeNormalizeURL:       cj.unsafeNormalizeURL,
+		Login:                    cj.login,
+		LoginUrl:                 cj.loginUrl,
+		LoginJS:                  cj.loginJS,
+		LoginPayload:             cj.loginPayload,
+		LoginParseFields:         cj.loginParseFields,
+		LoginParseXpath:          cj.loginParseXpath,
+		LoginSuccessCheck:        cj.loginSuccessCheck,
+		CheckLoginAfterEachPage:  cj.checkLoginAfterEachPage,
+		Chrome:                   cj.chrome,
+		ChromeBinary:             cj.chromeBinary,
+		DomLoadTime:              cj.domLoadTime,
+		NetworkIface:             cj.networkIface,
+		CancelOnDisconnect:       cj.cancelOnDisconnect,
+		CheckContent:             cj.checkContent,
+		Prefetch:                 cj.prefetch,
+		CallbackAnchorTextRegexp: cj.callbackAnchorTextRegexp,
+		CallbackSeedUrl:          cj.callbackSeedURL,
 	}
 	pagestream, err := cj.Worker.Client.AddDomainAndListen(context.Background(), dopt, grpc.MaxCallRecvMsgSize((2*1024*1024*1024)-1))
 	if err != nil {
@@ -335,6 +289,7 @@ func (cj *CrawlJob) Run() {
 		return
 	}
 	cj.sub = subpage.Sub
+	cj.initAnalyzedURL()
 	phChan := make(chan *pb.PageHTML, 1000)
 	defer close(phChan)
 
@@ -347,7 +302,7 @@ func (cj *CrawlJob) Run() {
 			close(cj.implPageChan)
 		} else {
 			for ph := range phChan {
-				cj.Callback(ph, cj)
+				cj.callback(ph, cj)
 			}
 		}
 	}()
