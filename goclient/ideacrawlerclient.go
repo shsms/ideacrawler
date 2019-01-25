@@ -46,20 +46,20 @@ type CrawlJob struct {
 	follow                   bool
 	callbackURLRegexp        string
 	followURLRegexp          string
-	callbackXpathMatch       []*pb.KVP // todo
-	callbackXpathRegexp      []*pb.KVP // todo
+	callbackXpathMatch       []*pb.KVP
+	callbackXpathRegexp      []*pb.KVP
 	maxConcurrentRequests    int32
 	useragent                string
 	impolite                 bool
 	depth                    int32
 	unsafeNormalizeURL       bool
-	login                    bool      // todo
-	loginUrl                 string    // todo
-	loginJS                  string    // todo
-	loginPayload             []*pb.KVP // todo
-	loginParseFields         bool      // todo
-	loginParseXpath          []*pb.KVP // todo
-	loginSuccessCheck        *pb.KVP   // todo
+	login                    bool
+	loginUrl                 string
+	loginJS                  string
+	loginPayload             []*pb.KVP
+	loginParseFields         bool
+	loginParseXpath          []*pb.KVP
+	loginSuccessCheck        *pb.KVP
 	checkLoginAfterEachPage  bool
 	chrome                   bool
 	chromeBinary             string
@@ -223,10 +223,6 @@ func (cj *CrawlJob) Stop() {
 	}
 }
 
-func (cj *CrawlJob) OnFinish(onFinishFunc func()) {
-	cj.cleanUpFunc = onFinishFunc
-}
-
 func (cj *CrawlJob) Run() {
 	cj.running = true
 	defer func() {
@@ -320,8 +316,8 @@ func (cj *CrawlJob) Run() {
 	}
 }
 
-func NewPageChan() chan *pb.PageHTML {
-	return make(chan *pb.PageHTML, 100)
+func NewPageChan() chan *PageHTML {
+	return make(chan *PageHTML, 100)
 }
 
 func NewAnalyzedURLChan() chan *pb.UrlList {

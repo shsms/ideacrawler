@@ -165,7 +165,6 @@ func (s *ideaCrawlerWorker) addNewJob(nj newJob) {
 			return
 		}
 	}
-	canc := make(chan cancelSignal)
 	randChan := make(chan int, 5)
 	j := &job{
 		domainname:               domainname,
@@ -180,9 +179,8 @@ func (s *ideaCrawlerWorker) addNewJob(nj newJob) {
 		subscriber:               subr,
 		mu:                       sync.Mutex{},
 		duplicates:               map[string]bool{},
-		cancelChan:               canc,
-		doneListeners:            []chan jobDoneSignal{},
-		doneChan:                 make(chan jobDoneSignal),
+		cancelChan:               make(chan struct{}),
+		doneChan:                 make(chan struct{}),
 		randChan:                 randChan,
 		log:                      nil,
 	}
@@ -296,7 +294,7 @@ func (s *ideaCrawlerWorker) CancelJob(ctx context.Context, sub *pb.Subscription)
 		log.Println("ERR - Cancel failed -", njs.err.Error())
 		return &pb.Status{Success: false, Error: njs.err.Error()}, njs.err
 	}
-	njs.job.cancelChan <- cancelSignal{}
+	njs.job.cancelChan <- struct{}{}
 	return &pb.Status{Success: true, Error: ""}, nil
 }
 

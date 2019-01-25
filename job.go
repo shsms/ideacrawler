@@ -43,17 +43,12 @@ type job struct {
 	subscriber               *subscriber
 	mu                       sync.Mutex
 	duplicates               map[string]bool
-	cancelChan               chan cancelSignal
+	cancelChan               chan struct{}
 	cd                       *chromeclient.ChromeDoer
 
-	// there will be a goroutine started inside RunJob that will listen on registerDoneListener for
-	// DoneListeners.  There will be a despatcher goroutine that will forward the doneChan info to
-	// all doneListeners.
-	// TODO: Needs to be replaced with close(chan) signals.
-	doneListeners []chan jobDoneSignal
-	doneChan      chan jobDoneSignal
-	randChan      <-chan int // for random number between min and max norm distributed
-	log           *log.Logger
+	doneChan chan struct{}
+	randChan <-chan int // for random number between min and max norm distributed
+	log      *log.Logger
 }
 
 func (j *job) sendPageHTML(ctx *fetchbot.Context, phtml pb.PageHTML) {
@@ -65,7 +60,7 @@ func (j *job) sendPageHTML(ctx *fetchbot.Context, phtml pb.PageHTML) {
 		j.subscriber.connected = false
 		if ctx != nil && j.opts.CancelOnDisconnect {
 			j.log.Printf("Lost client, cancelling queue.\n")
-			j.cancelChan <- cancelSignal{}
+			j.cancelChan <- struct{}{}
 		} else {
 			j.log.Printf("Lost client\n")
 		}
@@ -168,7 +163,7 @@ func (j *job) fetchHTTPGetHandler(ctx *fetchbot.Context, res *http.Response, err
 				UrlDepth:       ccmd.URLDepth(),
 			}
 			j.sendPageHTML(ctx, phtml)
-			j.cancelChan <- cancelSignal{}
+			j.cancelChan <- struct{}{}
 			if cliParams.SaveLoginPages != "" {
 				err := ioutil.WriteFile(path.Join(cliParams.SaveLoginPages, "loggedout.html"), pageBody, 0755)
 				if err != nil {

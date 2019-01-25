@@ -54,7 +54,7 @@ func (gc *Doer) Do(req *http.Request) (*http.Response, error) {
 		}
 		if ifmatch == false {
 			emsg := "Interface '" + opts.NetworkIface + "' not active."
-			gc.job.cancelChan <- cancelSignal{}
+			gc.job.cancelChan <- struct{}{}
 			gc.job.log.Printf("ERR - %v\n", emsg)
 			return nil, errors.New(emsg)
 		}

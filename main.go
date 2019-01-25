@@ -65,9 +65,6 @@ func parseCrawlerMode(mode string) (int, error) {
 	return -1, errInvalidMode
 }
 
-type cancelSignal struct{}
-type jobDoneSignal struct{}
-
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	rand.Seed(time.Now().UTC().UnixNano())
