@@ -104,7 +104,7 @@ func TestSinglePage(t *testing.T) {
 				gc.PageChan(gc.NewPageChan()),
 			)
 
-			z, err := w.NewCrawlJob(spec)
+			z, err := gc.NewCrawlJob(w, spec)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -187,7 +187,7 @@ func TestMultiSiteFilter(t *testing.T) {
 				gc.PageChan(gc.NewPageChan()),
 			)
 
-			z, err := w.NewCrawlJob(spec)
+			z, err := gc.NewCrawlJob(w, spec)
 			if err != nil {
 				t.Fatal(err)
 			}

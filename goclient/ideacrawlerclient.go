@@ -110,7 +110,7 @@ func NewJobSpec(opts ...Option) *JobSpec {
 	return spec
 }
 
-func (w *Worker) NewCrawlJob(spec *JobSpec) (*CrawlJob, error) {
+func NewCrawlJob(w *Worker, spec *JobSpec) (*CrawlJob, error) {
 	jobClient, err := w.Client.AddDomainAndListen(context.Background(), spec.dopt, grpc.MaxCallRecvMsgSize((2*1024*1024*1024)-1))
 	if err != nil {
 		log.Println("Box is possibly down. AddDomainAndListen failed:", err)
