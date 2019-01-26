@@ -69,9 +69,9 @@ type CrawlJob struct {
 	checkContent             bool
 	prefetch                 bool
 	callbackAnchorTextRegexp string
-	cleanUpFunc              func()
 
-	running        bool
+	startedChan    chan struct{} // if this is closed, job has started.
+	stoppedChan    chan struct{} // if this is closed, job has stopped.
 	addPagesClient pb.IdeaCrawler_AddPagesClient
 	sub            *pb.Subscription
 
@@ -84,6 +84,8 @@ type CrawlJob struct {
 	implAnalyzedURLChan chan *pb.UrlList
 	AnalyzedURLChan     <-chan *pb.UrlList
 	callbackSeedURL     bool
+
+	cleanUpFunc func()
 }
 
 type KVMap = map[string]string
@@ -115,20 +117,23 @@ func (w *Worker) Close() {
 }
 
 func (w *Worker) NewCrawlJob(opts ...Option) *CrawlJob {
-	var cj = &CrawlJob{}
+	var cj = &CrawlJob{
+		minDelay:              5,
+		follow:                true,
+		depth:                 -1,
+		domLoadTime:           5,
+		useragent:             "Fetchbot",
+		maxConcurrentRequests: 5,
 
-	cj.minDelay = 5
-	cj.follow = true
-	cj.depth = -1
-	cj.domLoadTime = 5
-	cj.useragent = "Fetchbot"
-	cj.maxConcurrentRequests = 5
+		startedChan: make(chan struct{}),
+		stoppedChan: make(chan struct{}),
+
+		Worker: w,
+	}
 
 	for _, opt := range opts {
 		opt(cj)
 	}
-
-	cj.Worker = w
 
 	return cj
 }
@@ -214,7 +219,20 @@ func (cj *CrawlJob) Start() {
 }
 
 func (cj *CrawlJob) IsAlive() bool {
-	return cj.running
+	select {
+	case <-cj.startedChan:
+	default: // startedChan is still open, so job has not started
+		return false
+	}
+	select {
+	case _, ok := <-cj.stoppedChan:
+		if ok == false {
+			return false
+		}
+	default: // stoppedChan is still open, so job is running
+		return true
+	}
+	return false // never reached
 }
 
 func (cj *CrawlJob) Stop() {
@@ -224,9 +242,9 @@ func (cj *CrawlJob) Stop() {
 }
 
 func (cj *CrawlJob) Run() {
-	cj.running = true
+	close(cj.startedChan)
 	defer func() {
-		cj.running = false
+		close(cj.stoppedChan)
 		if cj.cleanUpFunc != nil {
 			cj.cleanUpFunc()
 		}

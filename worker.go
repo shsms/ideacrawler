@@ -170,8 +170,6 @@ func (s *ideaCrawlerWorker) addNewJob(nj newJob) {
 		domainname:               domainname,
 		opts:                     nj.opts,
 		sub:                      sub,
-		running:                  false,
-		done:                     false,
 		seqnum:                   0,
 		callbackURLRegexp:        callbackURLRegexp,
 		followURLRegexp:          followURLRegexp,
@@ -186,6 +184,7 @@ func (s *ideaCrawlerWorker) addNewJob(nj newJob) {
 	}
 	s.jobs[sub.Subcode] = j
 	go randomGenerator(int(nj.opts.MinDelay), int(nj.opts.MaxDelay), randChan)
+	go s.RunJob(sub.Subcode, j)
 	nj.retChan <- newJobStatus{
 		job: j,
 		err: nil,
@@ -211,18 +210,12 @@ func (s *ideaCrawlerWorker) jobManager(newJobChan <-chan newJob, newSubChan <-ch
 				err: nil,
 			}
 		default:
-			time.Sleep(50 * time.Millisecond)
 		}
-		for domainname, job := range s.jobs {
-			if job.running {
+		for subcode, job := range s.jobs {
+			if job.done() {
+				delete(s.jobs, subcode)
 				continue
 			}
-			if job.done {
-				delete(s.jobs, domainname)
-				continue
-			}
-			job.running = true
-			go s.RunJob(domainname, job)
 		}
 		time.Sleep(50 * time.Millisecond)
 	}

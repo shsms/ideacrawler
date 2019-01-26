@@ -34,8 +34,6 @@ type job struct {
 	domainname               string
 	opts                     *pb.DomainOpt
 	sub                      pb.Subscription
-	running                  bool
-	done                     bool
 	seqnum                   int32
 	callbackURLRegexp        *regexp.Regexp
 	followURLRegexp          *regexp.Regexp
@@ -170,7 +168,6 @@ func (j *job) fetchHTTPGetHandler(ctx *fetchbot.Context, res *http.Response, err
 					j.log.Println("ERR - unable to save loggedout file:", err)
 				}
 			}
-			j.done = true
 			return
 		}
 	}
@@ -572,6 +569,18 @@ func (s *ideaCrawlerWorker) makeHTTPClientLoginChrome(j *job) (fetchbot.Doer, er
 	return &Doer{j.cd, j, semaphore.NewWeighted(int64(j.opts.MaxConcurrentRequests)), s}, nil
 }
 
+func (j *job) done() bool {
+	select {
+	case _, ok := <-j.doneChan:
+		if ok == false {
+			return true
+		}
+	default:
+		return false
+	}
+	return false // never reached
+}
+
 func (s *ideaCrawlerWorker) RunJob(subID string, j *job) {
 	err := j.setupJobLogger(subID)
 	if err != nil {
@@ -581,9 +590,6 @@ func (s *ideaCrawlerWorker) RunJob(subID string, j *job) {
 	j.log.Println("starting job -", subID)
 	defer func() {
 		close(j.subscriber.sendChan)
-		j.running = false
-
-		j.done = true
 		close(j.doneChan)
 		j.log.Println("stopping job -", subID)
 	}()
