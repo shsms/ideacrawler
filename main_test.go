@@ -97,14 +97,17 @@ func TestSinglePage(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			z := w.NewCrawlJob(
+			spec := gc.NewJobSpec(
 				gc.SeedURL(dp.seedURL),
 				gc.Chrome(dp.chrome, "/usr/bin/chromium"),
 				gc.NoFollow(),
 				gc.PageChan(gc.NewPageChan()),
 			)
 
-			z.Start()
+			z, err := w.NewCrawlJob(spec)
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			var ph *gc.PageHTML
 			var ok bool
@@ -172,7 +175,7 @@ func TestMultiSiteFilter(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			z := w.NewCrawlJob(
+			spec := gc.NewJobSpec(
 				gc.SeedURL(dp.seedURL),
 				gc.Chrome(dp.chrome, "/usr/bin/chromium"),
 				gc.Depth(dp.depth),
@@ -184,7 +187,10 @@ func TestMultiSiteFilter(t *testing.T) {
 				gc.PageChan(gc.NewPageChan()),
 			)
 
-			z.Start()
+			z, err := w.NewCrawlJob(spec)
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			for _, ii := range dp.pages {
 				z.AddPage(ii, "")

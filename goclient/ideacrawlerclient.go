@@ -38,25 +38,31 @@ type Worker struct {
 	Client pb.IdeaCrawlerClient
 }
 
-type CrawlJob struct {
+type JobSpec struct {
 	dopt *pb.DomainOpt
+
+	callback            func(*PageHTML, *CrawlJob)
+	usePageChan         bool
+	implPageChan        chan *pb.PageHTML
+	useAnalyzedURLChan  bool
+	implAnalyzedURLChan chan *pb.UrlList
+	callbackSeedURL     bool
+
+	cleanUpFunc func()
+}
+
+type CrawlJob struct {
+	spec *JobSpec
 
 	startedChan    chan struct{} // if this is closed, job has started.
 	stoppedChan    chan struct{} // if this is closed, job has stopped.
 	addPagesClient pb.IdeaCrawler_AddPagesClient
+	jobClient      pb.IdeaCrawler_AddDomainAndListenClient
 	sub            *pb.Subscription
 
-	Worker              *Worker
-	callback            func(*PageHTML, *CrawlJob)
-	usePageChan         bool
-	PageChan            <-chan *pb.PageHTML
-	implPageChan        chan *pb.PageHTML
-	useAnalyzedURLChan  bool
-	implAnalyzedURLChan chan *pb.UrlList
-	AnalyzedURLChan     <-chan *pb.UrlList
-	callbackSeedURL     bool
-
-	cleanUpFunc func()
+	PageChan        <-chan *pb.PageHTML
+	AnalyzedURLChan <-chan *pb.UrlList
+	Worker          *Worker
 }
 
 type KVMap = map[string]string
@@ -87,7 +93,7 @@ func (w *Worker) Close() {
 	w.Conn.Close()
 }
 
-func (w *Worker) NewCrawlJob(opts ...Option) *CrawlJob {
+func NewJobSpec(opts ...Option) *JobSpec {
 	dopt := &pb.DomainOpt{
 		MinDelay:              5,
 		Depth:                 -1,
@@ -95,22 +101,46 @@ func (w *Worker) NewCrawlJob(opts ...Option) *CrawlJob {
 		Useragent:             "Fetchbot",
 		MaxConcurrentRequests: 5,
 	}
-	var cj = &CrawlJob{
-		dopt:        dopt,
-		Worker:      w,
-		startedChan: make(chan struct{}),
-		stoppedChan: make(chan struct{}),
+	spec := &JobSpec{
+		dopt: dopt,
 	}
-
 	for _, opt := range opts {
-		opt(cj)
+		opt(spec)
+	}
+	return spec
+}
+
+func (w *Worker) NewCrawlJob(spec *JobSpec) (*CrawlJob, error) {
+	jobClient, err := w.Client.AddDomainAndListen(context.Background(), spec.dopt, grpc.MaxCallRecvMsgSize((2*1024*1024*1024)-1))
+	if err != nil {
+		log.Println("Box is possibly down. AddDomainAndListen failed:", err)
+		return nil, err
+	}
+	subpage, err := jobClient.Recv()
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
 	}
 
-	return cj
+	var cj = &CrawlJob{
+		Worker:          w,
+		spec:            spec,
+		startedChan:     make(chan struct{}),
+		stoppedChan:     make(chan struct{}),
+		sub:             subpage.Sub,
+		jobClient:       jobClient,
+		PageChan:        spec.implPageChan,
+		AnalyzedURLChan: spec.implAnalyzedURLChan,
+	}
+
+	go cj.run()
+	time.Sleep(2 * time.Second)
+
+	return cj, nil
 }
 
 func (cj *CrawlJob) initAnalyzedURL() {
-	if cj.useAnalyzedURLChan == false {
+	if cj.spec.useAnalyzedURLChan == false {
 		return
 	}
 	if cj.sub == nil {
@@ -135,7 +165,7 @@ func (cj *CrawlJob) listenAnalyzedURLs(urlstream pb.IdeaCrawler_GetAnalyzedURLsC
 			fmt.Println(err)
 			break
 		}
-		cj.implAnalyzedURLChan <- urlList
+		cj.spec.implAnalyzedURLChan <- urlList
 	}
 }
 
@@ -184,11 +214,6 @@ func (cj *CrawlJob) AddJS(typ pb.PageReqType, url, js, metaStr string) error {
 	})
 }
 
-func (cj *CrawlJob) Start() {
-	go cj.Run()
-	time.Sleep(2 * time.Second)
-}
-
 func (cj *CrawlJob) IsAlive() bool {
 	select {
 	case <-cj.startedChan:
@@ -212,55 +237,41 @@ func (cj *CrawlJob) Stop() {
 	}
 }
 
-func (cj *CrawlJob) Run() {
+func (cj *CrawlJob) run() {
 	close(cj.startedChan)
 	defer func() {
 		close(cj.stoppedChan)
-		if cj.cleanUpFunc != nil {
-			cj.cleanUpFunc()
+		if cj.spec.cleanUpFunc != nil {
+			cj.spec.cleanUpFunc()
 		}
 	}()
 
-	if cj.usePageChan == true && cj.callback != nil {
+	if cj.spec.usePageChan == true && cj.spec.callback != nil {
 		log.Fatal("Callback channel and function both can't be used at the same time")
-	} else if cj.usePageChan == false && cj.callback == nil {
+	} else if cj.spec.usePageChan == false && cj.spec.callback == nil {
 		log.Fatal("Please set pageChan to get callbacks on,  or provide a callback function")
 	}
 
-	pagestream, err := cj.Worker.Client.AddDomainAndListen(context.Background(), cj.dopt, grpc.MaxCallRecvMsgSize((2*1024*1024*1024)-1))
-	if err != nil {
-		log.Println("Box is possibly down. AddDomainAndListen failed:", err)
-		return
-	}
-	subpage, err := pagestream.Recv()
-	if err == io.EOF {
-		return
-	}
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	cj.sub = subpage.Sub
 	cj.initAnalyzedURL()
 	phChan := make(chan *pb.PageHTML, 1000)
 	defer close(phChan)
 
 	go func() {
 		time.Sleep(3 * time.Second) // This is to make sure callbacks don't start until Start() function exits.  Start sleep for 2 seconds.
-		if cj.usePageChan {
+		if cj.spec.usePageChan {
 			for ph := range phChan {
-				cj.implPageChan <- ph
+				cj.spec.implPageChan <- ph
 			}
-			close(cj.implPageChan)
+			close(cj.spec.implPageChan)
 		} else {
 			for ph := range phChan {
-				cj.callback(ph, cj)
+				cj.spec.callback(ph, cj)
 			}
 		}
 	}()
 
 	for {
-		page, err := pagestream.Recv()
+		page, err := cj.jobClient.Recv()
 		if err == io.EOF {
 			break
 		}

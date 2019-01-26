@@ -6,137 +6,137 @@ import (
 	pb "github.com/ideas2it/ideacrawler/protofiles"
 )
 
-type Option func(*CrawlJob)
+type Option func(*JobSpec)
 
 func SeedURL(vv string) Option {
-	return func(args *CrawlJob) {
+	return func(args *JobSpec) {
 		args.dopt.SeedUrl = vv
 	}
 }
 
 func MinDelay(vv int32) Option {
-	return func(args *CrawlJob) {
+	return func(args *JobSpec) {
 		args.dopt.MinDelay = vv
 	}
 }
 
 func MaxDelay(vv int32) Option {
-	return func(args *CrawlJob) {
+	return func(args *JobSpec) {
 		args.dopt.MaxDelay = vv
 	}
 }
 
 func MaxIdleTime(vv int32) Option {
-	return func(args *CrawlJob) {
+	return func(args *JobSpec) {
 		args.dopt.MaxIdleTime = vv
 	}
 }
 
 func NoFollow() Option {
-	return func(args *CrawlJob) {
+	return func(args *JobSpec) {
 		args.dopt.NoFollow = true
 	}
 }
 
 func CallbackURLRegexp(vv string) Option {
-	return func(args *CrawlJob) {
+	return func(args *JobSpec) {
 		args.dopt.CallbackUrlRegexp = vv
 	}
 }
 
 func FollowURLRegexp(vv string) Option {
-	return func(args *CrawlJob) {
+	return func(args *JobSpec) {
 		args.dopt.FollowUrlRegexp = vv
 	}
 }
 
 func MaxConcurrentRequests(vv int32) Option {
-	return func(args *CrawlJob) {
+	return func(args *JobSpec) {
 		args.dopt.MaxConcurrentRequests = vv
 	}
 }
 
 func Useragent(vv string) Option {
-	return func(args *CrawlJob) {
+	return func(args *JobSpec) {
 		args.dopt.Useragent = vv
 	}
 }
 
 func Impolite() Option {
-	return func(args *CrawlJob) {
+	return func(args *JobSpec) {
 		args.dopt.Impolite = true
 	}
 }
 
 func Depth(vv int32) Option {
-	return func(args *CrawlJob) {
+	return func(args *JobSpec) {
 		args.dopt.Depth = vv
 	}
 }
 
 func UnsafeNormalizeURL() Option {
-	return func(args *CrawlJob) {
+	return func(args *JobSpec) {
 		args.dopt.UnsafeNormalizeURL = true
 	}
 }
 
 func CheckLoginAfterEachPage() Option {
-	return func(args *CrawlJob) {
+	return func(args *JobSpec) {
 		args.dopt.CheckLoginAfterEachPage = true
 	}
 }
 
 func Chrome(uu bool, vv string) Option {
-	return func(args *CrawlJob) {
+	return func(args *JobSpec) {
 		args.dopt.Chrome = uu
 		args.dopt.ChromeBinary = vv
 	}
 }
 
 func DomLoadTime(vv int32) Option {
-	return func(args *CrawlJob) {
+	return func(args *JobSpec) {
 		args.dopt.DomLoadTime = vv
 	}
 }
 
 func NetworkIface(vv string) Option {
-	return func(args *CrawlJob) {
+	return func(args *JobSpec) {
 		args.dopt.NetworkIface = vv
 	}
 }
 
 func CancelOnDisconnect() Option {
-	return func(args *CrawlJob) {
+	return func(args *JobSpec) {
 		args.dopt.CancelOnDisconnect = true
 	}
 }
 
 func CheckContent() Option {
-	return func(args *CrawlJob) {
+	return func(args *JobSpec) {
 		args.dopt.CheckContent = true
 	}
 }
 
 func Prefetch() Option {
-	return func(args *CrawlJob) {
+	return func(args *JobSpec) {
 		args.dopt.Prefetch = true
 	}
 }
 
 func CallbackAnchorTextRegexp(vv string) Option {
-	return func(args *CrawlJob) {
+	return func(args *JobSpec) {
 		args.dopt.CallbackAnchorTextRegexp = vv
 	}
 }
 
 func CleanUpFunc(vv func()) Option {
-	return func(args *CrawlJob) {
+	return func(args *JobSpec) {
 		args.cleanUpFunc = vv
 	}
 }
 
 func CallbackFunc(vv func(*PageHTML, *CrawlJob)) Option {
-	return func(args *CrawlJob) {
+	return func(args *JobSpec) {
 		if args.usePageChan == true {
 			log.Fatal("Can't use PageChan and CallbackFunc at the same time.")
 		}
@@ -145,35 +145,33 @@ func CallbackFunc(vv func(*PageHTML, *CrawlJob)) Option {
 }
 
 func PageChan(vv chan *pb.PageHTML) Option {
-	return func(args *CrawlJob) {
+	return func(args *JobSpec) {
 		if args.callback != nil {
 			log.Fatal("Can't use PageChan and CallbackFunc at the same time.")
 		}
 		args.usePageChan = true
 		args.implPageChan = vv
-		args.PageChan = vv
 	}
 }
 
 func AnalyzedURLChan(vv chan *pb.UrlList) Option {
-	return func(args *CrawlJob) {
+	return func(args *JobSpec) {
 		if args.callback != nil {
 			log.Fatal("Can't use PageChan and CallbackFunc at the same time.")
 		}
 		args.useAnalyzedURLChan = true
 		args.implAnalyzedURLChan = vv
-		args.AnalyzedURLChan = vv
 	}
 }
 
 func CallbackSeedURL() Option {
-	return func(args *CrawlJob) {
+	return func(args *JobSpec) {
 		args.dopt.CallbackSeedUrl = true
 	}
 }
 
 func Login(loginUrl string, loginPayload, loginParseXpath KVMap, loginSuccessCheck KVMap) Option {
-	return func(args *CrawlJob) {
+	return func(args *JobSpec) {
 		args.dopt.Login = true
 		args.dopt.LoginUrl = loginUrl
 		for k, v := range loginPayload {
@@ -193,7 +191,7 @@ func Login(loginUrl string, loginPayload, loginParseXpath KVMap, loginSuccessChe
 }
 
 func LoginChrome(loginUrl string, loginJS string, loginSuccessCheck KVMap) Option {
-	return func(args *CrawlJob) {
+	return func(args *JobSpec) {
 		args.dopt.Login = true
 		args.dopt.LoginUrl = loginUrl
 		args.dopt.LoginJS = loginJS
@@ -204,7 +202,7 @@ func LoginChrome(loginUrl string, loginJS string, loginSuccessCheck KVMap) Optio
 }
 
 func CallbackXpathMatch(mdata KVMap) Option {
-	return func(args *CrawlJob) {
+	return func(args *JobSpec) {
 		for k, v := range mdata {
 			args.dopt.CallbackXpathMatch = append(args.dopt.CallbackXpathMatch, &pb.KVP{Key: k, Value: v})
 		}
@@ -212,7 +210,7 @@ func CallbackXpathMatch(mdata KVMap) Option {
 }
 
 func CallbackXpathRegexp(mdata KVMap) Option {
-	return func(args *CrawlJob) {
+	return func(args *JobSpec) {
 		for k, v := range mdata {
 			args.dopt.CallbackXpathRegexp = append(args.dopt.CallbackXpathRegexp, &pb.KVP{Key: k, Value: v})
 		}
