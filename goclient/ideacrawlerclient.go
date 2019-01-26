@@ -39,36 +39,7 @@ type Worker struct {
 }
 
 type CrawlJob struct {
-	seedURL                  string
-	minDelay                 int32
-	maxDelay                 int32
-	maxIdleTime              int32
-	follow                   bool
-	callbackURLRegexp        string
-	followURLRegexp          string
-	callbackXpathMatch       []*pb.KVP
-	callbackXpathRegexp      []*pb.KVP
-	maxConcurrentRequests    int32
-	useragent                string
-	impolite                 bool
-	depth                    int32
-	unsafeNormalizeURL       bool
-	login                    bool
-	loginUrl                 string
-	loginJS                  string
-	loginPayload             []*pb.KVP
-	loginParseFields         bool
-	loginParseXpath          []*pb.KVP
-	loginSuccessCheck        *pb.KVP
-	checkLoginAfterEachPage  bool
-	chrome                   bool
-	chromeBinary             string
-	domLoadTime              int32
-	networkIface             string
-	cancelOnDisconnect       bool
-	checkContent             bool
-	prefetch                 bool
-	callbackAnchorTextRegexp string
+	dopt *pb.DomainOpt
 
 	startedChan    chan struct{} // if this is closed, job has started.
 	stoppedChan    chan struct{} // if this is closed, job has stopped.
@@ -117,18 +88,18 @@ func (w *Worker) Close() {
 }
 
 func (w *Worker) NewCrawlJob(opts ...Option) *CrawlJob {
+	dopt := &pb.DomainOpt{
+		MinDelay:              5,
+		Depth:                 -1,
+		DomLoadTime:           5,
+		Useragent:             "Fetchbot",
+		MaxConcurrentRequests: 5,
+	}
 	var cj = &CrawlJob{
-		minDelay:              5,
-		follow:                true,
-		depth:                 -1,
-		domLoadTime:           5,
-		useragent:             "Fetchbot",
-		maxConcurrentRequests: 5,
-
+		dopt:        dopt,
+		Worker:      w,
 		startedChan: make(chan struct{}),
 		stoppedChan: make(chan struct{}),
-
-		Worker: w,
 	}
 
 	for _, opt := range opts {
@@ -256,40 +227,7 @@ func (cj *CrawlJob) Run() {
 		log.Fatal("Please set pageChan to get callbacks on,  or provide a callback function")
 	}
 
-	dopt := &pb.DomainOpt{
-		SeedUrl:                  cj.seedURL,
-		MinDelay:                 cj.minDelay,
-		MaxDelay:                 cj.maxDelay,
-		NoFollow:                 !cj.follow,
-		MaxIdleTime:              cj.maxIdleTime,
-		CallbackUrlRegexp:        cj.callbackURLRegexp,
-		FollowUrlRegexp:          cj.followURLRegexp,
-		CallbackXpathMatch:       cj.callbackXpathMatch,
-		CallbackXpathRegexp:      cj.callbackXpathRegexp,
-		MaxConcurrentRequests:    cj.maxConcurrentRequests,
-		Useragent:                cj.useragent,
-		Impolite:                 cj.impolite,
-		Depth:                    cj.depth,
-		UnsafeNormalizeURL:       cj.unsafeNormalizeURL,
-		Login:                    cj.login,
-		LoginUrl:                 cj.loginUrl,
-		LoginJS:                  cj.loginJS,
-		LoginPayload:             cj.loginPayload,
-		LoginParseFields:         cj.loginParseFields,
-		LoginParseXpath:          cj.loginParseXpath,
-		LoginSuccessCheck:        cj.loginSuccessCheck,
-		CheckLoginAfterEachPage:  cj.checkLoginAfterEachPage,
-		Chrome:                   cj.chrome,
-		ChromeBinary:             cj.chromeBinary,
-		DomLoadTime:              cj.domLoadTime,
-		NetworkIface:             cj.networkIface,
-		CancelOnDisconnect:       cj.cancelOnDisconnect,
-		CheckContent:             cj.checkContent,
-		Prefetch:                 cj.prefetch,
-		CallbackAnchorTextRegexp: cj.callbackAnchorTextRegexp,
-		CallbackSeedUrl:          cj.callbackSeedURL,
-	}
-	pagestream, err := cj.Worker.Client.AddDomainAndListen(context.Background(), dopt, grpc.MaxCallRecvMsgSize((2*1024*1024*1024)-1))
+	pagestream, err := cj.Worker.Client.AddDomainAndListen(context.Background(), cj.dopt, grpc.MaxCallRecvMsgSize((2*1024*1024*1024)-1))
 	if err != nil {
 		log.Println("Box is possibly down. AddDomainAndListen failed:", err)
 		return

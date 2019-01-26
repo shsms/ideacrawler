@@ -10,122 +10,122 @@ type Option func(*CrawlJob)
 
 func SeedURL(vv string) Option {
 	return func(args *CrawlJob) {
-		args.seedURL = vv
+		args.dopt.SeedUrl = vv
 	}
 }
 
 func MinDelay(vv int32) Option {
 	return func(args *CrawlJob) {
-		args.minDelay = vv
+		args.dopt.MinDelay = vv
 	}
 }
 
 func MaxDelay(vv int32) Option {
 	return func(args *CrawlJob) {
-		args.maxDelay = vv
+		args.dopt.MaxDelay = vv
 	}
 }
 
 func MaxIdleTime(vv int32) Option {
 	return func(args *CrawlJob) {
-		args.maxIdleTime = vv
+		args.dopt.MaxIdleTime = vv
 	}
 }
 
 func NoFollow() Option {
 	return func(args *CrawlJob) {
-		args.follow = false
+		args.dopt.NoFollow = true
 	}
 }
 
 func CallbackURLRegexp(vv string) Option {
 	return func(args *CrawlJob) {
-		args.callbackURLRegexp = vv
+		args.dopt.CallbackUrlRegexp = vv
 	}
 }
 
 func FollowURLRegexp(vv string) Option {
 	return func(args *CrawlJob) {
-		args.followURLRegexp = vv
+		args.dopt.FollowUrlRegexp = vv
 	}
 }
 
 func MaxConcurrentRequests(vv int32) Option {
 	return func(args *CrawlJob) {
-		args.maxConcurrentRequests = vv
+		args.dopt.MaxConcurrentRequests = vv
 	}
 }
 
 func Useragent(vv string) Option {
 	return func(args *CrawlJob) {
-		args.useragent = vv
+		args.dopt.Useragent = vv
 	}
 }
 
 func Impolite() Option {
 	return func(args *CrawlJob) {
-		args.impolite = true
+		args.dopt.Impolite = true
 	}
 }
 
 func Depth(vv int32) Option {
 	return func(args *CrawlJob) {
-		args.depth = vv
+		args.dopt.Depth = vv
 	}
 }
 
 func UnsafeNormalizeURL() Option {
 	return func(args *CrawlJob) {
-		args.unsafeNormalizeURL = true
+		args.dopt.UnsafeNormalizeURL = true
 	}
 }
 
 func CheckLoginAfterEachPage() Option {
 	return func(args *CrawlJob) {
-		args.checkLoginAfterEachPage = true
+		args.dopt.CheckLoginAfterEachPage = true
 	}
 }
 
 func Chrome(uu bool, vv string) Option {
 	return func(args *CrawlJob) {
-		args.chrome = uu
-		args.chromeBinary = vv
+		args.dopt.Chrome = uu
+		args.dopt.ChromeBinary = vv
 	}
 }
 
 func DomLoadTime(vv int32) Option {
 	return func(args *CrawlJob) {
-		args.domLoadTime = vv
+		args.dopt.DomLoadTime = vv
 	}
 }
 
 func NetworkIface(vv string) Option {
 	return func(args *CrawlJob) {
-		args.networkIface = vv
+		args.dopt.NetworkIface = vv
 	}
 }
 
 func CancelOnDisconnect() Option {
 	return func(args *CrawlJob) {
-		args.cancelOnDisconnect = true
+		args.dopt.CancelOnDisconnect = true
 	}
 }
 
 func CheckContent() Option {
 	return func(args *CrawlJob) {
-		args.checkContent = true
+		args.dopt.CheckContent = true
 	}
 }
 
 func Prefetch() Option {
 	return func(args *CrawlJob) {
-		args.prefetch = true
+		args.dopt.Prefetch = true
 	}
 }
 
 func CallbackAnchorTextRegexp(vv string) Option {
 	return func(args *CrawlJob) {
-		args.callbackAnchorTextRegexp = vv
+		args.dopt.CallbackAnchorTextRegexp = vv
 	}
 }
 
@@ -168,37 +168,37 @@ func AnalyzedURLChan(vv chan *pb.UrlList) Option {
 
 func CallbackSeedURL() Option {
 	return func(args *CrawlJob) {
-		args.callbackSeedURL = true
+		args.dopt.CallbackSeedUrl = true
 	}
 }
 
 func Login(loginUrl string, loginPayload, loginParseXpath KVMap, loginSuccessCheck KVMap) Option {
 	return func(args *CrawlJob) {
-		args.login = true
-		args.loginUrl = loginUrl
+		args.dopt.Login = true
+		args.dopt.LoginUrl = loginUrl
 		for k, v := range loginPayload {
-			args.loginPayload = append(args.loginPayload, &pb.KVP{Key: k, Value: v})
+			args.dopt.LoginPayload = append(args.dopt.LoginPayload, &pb.KVP{Key: k, Value: v})
 		}
 		if len(loginParseXpath) > 0 {
-			args.loginParseFields = true
+			args.dopt.LoginParseFields = true
 		}
 		for k, v := range loginParseXpath {
-			args.loginParseXpath = append(args.loginParseXpath, &pb.KVP{Key: k, Value: v})
+			args.dopt.LoginParseXpath = append(args.dopt.LoginParseXpath, &pb.KVP{Key: k, Value: v})
 		}
 
 		for k, v := range loginSuccessCheck {
-			args.loginSuccessCheck = &pb.KVP{Key: k, Value: v}
+			args.dopt.LoginSuccessCheck = &pb.KVP{Key: k, Value: v}
 		}
 	}
 }
 
 func LoginChrome(loginUrl string, loginJS string, loginSuccessCheck KVMap) Option {
 	return func(args *CrawlJob) {
-		args.login = true
-		args.loginUrl = loginUrl
-		args.loginJS = loginJS
+		args.dopt.Login = true
+		args.dopt.LoginUrl = loginUrl
+		args.dopt.LoginJS = loginJS
 		for k, v := range loginSuccessCheck {
-			args.loginSuccessCheck = &pb.KVP{Key: k, Value: v}
+			args.dopt.LoginSuccessCheck = &pb.KVP{Key: k, Value: v}
 		}
 	}
 }
@@ -206,7 +206,7 @@ func LoginChrome(loginUrl string, loginJS string, loginSuccessCheck KVMap) Optio
 func CallbackXpathMatch(mdata KVMap) Option {
 	return func(args *CrawlJob) {
 		for k, v := range mdata {
-			args.callbackXpathMatch = append(args.callbackXpathMatch, &pb.KVP{Key: k, Value: v})
+			args.dopt.CallbackXpathMatch = append(args.dopt.CallbackXpathMatch, &pb.KVP{Key: k, Value: v})
 		}
 	}
 }
@@ -214,7 +214,7 @@ func CallbackXpathMatch(mdata KVMap) Option {
 func CallbackXpathRegexp(mdata KVMap) Option {
 	return func(args *CrawlJob) {
 		for k, v := range mdata {
-			args.callbackXpathRegexp = append(args.callbackXpathRegexp, &pb.KVP{Key: k, Value: v})
+			args.dopt.CallbackXpathRegexp = append(args.dopt.CallbackXpathRegexp, &pb.KVP{Key: k, Value: v})
 		}
 	}
 }
