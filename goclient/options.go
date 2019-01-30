@@ -3,7 +3,7 @@ package goclient
 import (
 	"log"
 
-	pb "github.com/ideas2it/ideacrawler/protofiles"
+	pb "github.com/shsms/ideacrawler/protofiles"
 )
 
 type Option func(*JobSpec)

@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/fetchbot"
-	"github.com/ideas2it/ideacrawler/prefetchurl"
+	"github.com/shsms/ideacrawler/prefetchurl"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/semaphore"
 )

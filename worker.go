@@ -14,19 +14,13 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/uuid"
-	"github.com/ideas2it/ideacrawler/chromeclient"
-	pb "github.com/ideas2it/ideacrawler/protofiles"
-	sc "github.com/ideas2it/ideacrawler/statuscodes"
+	"github.com/hashicorp/yamux"
+	"github.com/shsms/ideacrawler/chromeclient"
+	pb "github.com/shsms/ideacrawler/protofiles"
+	sc "github.com/shsms/ideacrawler/statuscodes"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
-
-type clusterWorkerListener struct {
-	conn      net.Conn
-	connected bool
-	closeChan chan bool
-	closed    bool
-}
 
 type subscriber struct {
 	doneSeqnum           int32
@@ -63,7 +57,7 @@ type newSub struct {
 	retChan chan<- newJobStatus
 }
 
-type CrawlCommand struct {
+type crawlCommand struct {
 	method     string
 	url        *url.URL
 	noCallback bool
@@ -72,9 +66,9 @@ type CrawlCommand struct {
 	anchorText string
 }
 
-func newCrawlCommand(method, urlstr, metaStr string, urlDepth int32) (CrawlCommand, error) {
+func newCrawlCommand(method, urlstr, metaStr string, urlDepth int32) (crawlCommand, error) {
 	parsed, err := url.Parse(urlstr)
-	return CrawlCommand{
+	return crawlCommand{
 		method:   method,
 		url:      parsed,
 		metaStr:  metaStr,
@@ -82,19 +76,19 @@ func newCrawlCommand(method, urlstr, metaStr string, urlDepth int32) (CrawlComma
 	}, err
 }
 
-func (c CrawlCommand) URL() *url.URL {
+func (c crawlCommand) URL() *url.URL {
 	return c.url
 }
 
-func (c CrawlCommand) Method() string {
+func (c crawlCommand) Method() string {
 	return c.method
 }
 
-func (c CrawlCommand) MetaStr() string {
+func (c crawlCommand) MetaStr() string {
 	return c.metaStr
 }
 
-func (c CrawlCommand) URLDepth() int32 {
+func (c crawlCommand) URLDepth() int32 {
 	return c.urlDepth
 }
 
@@ -362,41 +356,16 @@ func (s *ideaCrawlerWorker) AddDomainAndListen(opts *pb.DomainOpt, ostream pb.Id
 	return nil
 }
 
-func (l *clusterWorkerListener) Accept() (net.Conn, error) {
-	if l.closed == true {
-		return nil, errors.New("Listener closed")
-	}
-	if l.connected == false {
-		l.connected = true
-		return l.conn, nil
-	}
-	for l.closed == false {
-		time.Sleep(100 * time.Millisecond)
-	}
-	return nil, errors.New("Listener closed")
-}
-
-func (l *clusterWorkerListener) Close() error {
-	if l.closed == true {
-		return nil
-	}
-	close(l.closeChan)
-	return nil
-}
-
-func (l *clusterWorkerListener) Addr() net.Addr {
-	return l.conn.LocalAddr()
-}
-
 func newClusterWorkerListener() net.Listener {
-	var err error
-	l := &clusterWorkerListener{}
-	l.conn, err = net.Dial("tcp", cliParams.Servers)
+	conn, err := net.Dial("tcp", cliParams.Servers)
 	if err != nil {
-		log.Fatal("Unable to connect to servers")
+		log.Fatalf("Unable to connect to servers: %v", err)
 	}
-	l.closeChan = make(chan bool)
-	return l
+	session, err := yamux.Server(conn, nil)
+	if err != nil {
+		log.Fatalf("Unable to connect to servers: %v", err)
+	}
+	return session
 }
 
 func newStandaloneListener() net.Listener {

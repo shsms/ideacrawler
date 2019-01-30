@@ -1,4 +1,4 @@
-module github.com/ideas2it/ideacrawler
+module github.com/shsms/ideacrawler
 
 require (
 	github.com/PuerkitoBio/fetchbot v1.1.2
@@ -13,6 +13,7 @@ require (
 	github.com/google/uuid v1.1.0
 	github.com/gorilla/websocket v1.4.0
 	github.com/gregjones/httpcache v0.0.0-20181110185634-c63ab54fda8f
+	github.com/hashicorp/yamux v0.0.0-20181012175058-2f1d1f20f75d
 	github.com/mafredri/cdp v0.20.0
 	github.com/petar/GoLLRB v0.0.0-20130427215148-53be0d36a84c
 	github.com/peterbourgon/diskv v2.0.1+incompatible

@@ -24,9 +24,9 @@ import (
 	htmlquery "github.com/antchfx/xquery/html"
 	"github.com/gregjones/httpcache"
 	"github.com/gregjones/httpcache/diskcache"
-	"github.com/ideas2it/ideacrawler/chromeclient"
-	pb "github.com/ideas2it/ideacrawler/protofiles"
-	sc "github.com/ideas2it/ideacrawler/statuscodes"
+	"github.com/shsms/ideacrawler/chromeclient"
+	pb "github.com/shsms/ideacrawler/protofiles"
+	sc "github.com/shsms/ideacrawler/statuscodes"
 	"golang.org/x/sync/semaphore"
 )
 
@@ -92,8 +92,8 @@ func (j *job) fetchErrorHandler(ctx *fetchbot.Context, res *http.Response, err e
 		Url:            ctx.Cmd.URL().String(),
 		Httpstatuscode: sc.FetchbotError,
 		Content:        []byte{},
-		MetaStr:        ctx.Cmd.(CrawlCommand).MetaStr(),
-		UrlDepth:       ctx.Cmd.(CrawlCommand).URLDepth(),
+		MetaStr:        ctx.Cmd.(crawlCommand).MetaStr(),
+		UrlDepth:       ctx.Cmd.(crawlCommand).URLDepth(),
 	}
 	j.sendPageHTML(ctx, phtml)
 	return
@@ -101,7 +101,7 @@ func (j *job) fetchErrorHandler(ctx *fetchbot.Context, res *http.Response, err e
 
 func (j *job) fetchHTTPGetHandler(ctx *fetchbot.Context, res *http.Response, err error) {
 	requestURL := res.Request.URL
-	ccmd := ctx.Cmd.(CrawlCommand)
+	ccmd := ctx.Cmd.(crawlCommand)
 	anchorText := ccmd.anchorText
 	if ccmd.noCallback == true {
 		return
@@ -133,7 +133,7 @@ func (j *job) fetchHTTPGetHandler(ctx *fetchbot.Context, res *http.Response, err
 			Sub:            &pb.Subscription{},
 			Url:            requestURL.String(),
 			Httpstatuscode: sc.ResponseError,
-			MetaStr:        ctx.Cmd.(CrawlCommand).MetaStr(),
+			MetaStr:        ctx.Cmd.(crawlCommand).MetaStr(),
 			Content:        []byte{},
 			UrlDepth:       ccmd.URLDepth(),
 		}
@@ -288,11 +288,11 @@ func (j *job) fetchHTTPGetHandler(ctx *fetchbot.Context, res *http.Response, err
 }
 
 func (j *job) fetchHTTPHeadHandler(ctx *fetchbot.Context, res *http.Response, err error) {
-	cmd := CrawlCommand{
+	cmd := crawlCommand{
 		method:     "GET",
 		url:        ctx.Cmd.URL(),
 		noCallback: false,
-		metaStr:    ctx.Cmd.(CrawlCommand).MetaStr(),
+		metaStr:    ctx.Cmd.(crawlCommand).MetaStr(),
 	}
 	if err := ctx.Q.Send(cmd); err != nil {
 		j.log.Printf("ERR - %s %s - %s\n", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
@@ -690,7 +690,7 @@ func (s *ideaCrawlerWorker) RunJob(subID string, j *job) {
 						j.log.Println(err)
 						return
 					}
-					cmd := CrawlCommand{
+					cmd := crawlCommand{
 						method: "GET",
 						url: &url.URL{
 							Scheme:   "crawljs-builtinjs",
@@ -713,7 +713,7 @@ func (s *ideaCrawlerWorker) RunJob(subID string, j *job) {
 						j.log.Println(err)
 						return
 					}
-					cmd := CrawlCommand{
+					cmd := crawlCommand{
 						method: "GET",
 						url: &url.URL{
 							Scheme:   "crawljs-jscript",
@@ -816,10 +816,10 @@ func (j *job) enqueueLinks(ctx *fetchbot.Context, doc *goquery.Document, urlDept
 
 			}
 
-			cmd := CrawlCommand{
+			cmd := crawlCommand{
 				method:     SendMethod,
 				url:        parsedURL,
-				metaStr:    ctx.Cmd.(CrawlCommand).MetaStr(),
+				metaStr:    ctx.Cmd.(crawlCommand).MetaStr(),
 				urlDepth:   urlDepth,
 				anchorText: anchorText,
 			}
@@ -846,7 +846,7 @@ func (j *job) enqueueLinks(ctx *fetchbot.Context, doc *goquery.Document, urlDept
 		for url := range urlMap {
 			urlList.Url = append(urlList.Url, url)
 		}
-		urlList.MetaStr = ctx.Cmd.(CrawlCommand).MetaStr()
+		urlList.MetaStr = ctx.Cmd.(crawlCommand).MetaStr()
 		urlList.UrlDepth = urlDepth
 
 		select {

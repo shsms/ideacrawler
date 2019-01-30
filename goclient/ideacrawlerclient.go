@@ -26,7 +26,7 @@ import (
 	"net"
 	"time"
 
-	pb "github.com/ideas2it/ideacrawler/protofiles"
+	pb "github.com/shsms/ideacrawler/protofiles"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
