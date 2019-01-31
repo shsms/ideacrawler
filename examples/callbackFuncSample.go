@@ -20,46 +20,47 @@ package main
 
 import (
 	"fmt"
-	"time"
 	"io/ioutil"
-	gc "github.com/ideas2it/ideacrawler/goclient"
+	"time"
+
+	gc "github.com/shsms/ideacrawler/goclient"
 )
 
 func main() {
 
 	z := gc.NewCrawlJob("127.0.0.1", "2345")
 
-	z.Callback = func(ph *gc.PageHTML, cj *gc.CrawlJob)  {
+	z.Callback = func(ph *gc.PageHTML, cj *gc.CrawlJob) {
 		fmt.Println(ph.Success, ph.Httpstatuscode, ph.Url, ph.MetaStr, ph.UrlDepth)
 		// fmt.Println(string(ph.Content))
 		err := ioutil.WriteFile("/tmp/out.file", ph.Content, 0775)
 		if err != nil {
-			fmt.Println("Write failed:",err, "for url:", ph.Url)
+			fmt.Println("Write failed:", err, "for url:", ph.Url)
 		}
 	}
-	
-	z.SeedURL	= "http://books.toscrape.com/catalogue/page-1.html"
+
+	z.SeedURL = "http://books.toscrape.com/catalogue/page-1.html"
 	//  Follow SeedURL with given FollowUrlRegexp. Also we could define CallbackUrlRegexp.
-	z.Follow		= true
-	z.Depth                 = 1
-	z.FollowUrlRegexp	= ".*books.*page-.*html"
-	z.CallbackUrlRegexp	= ".*books.*catalogue.*index.*html"
+	z.Follow = true
+	z.Depth = 1
+	z.FollowUrlRegexp = ".*books.*page-.*html"
+	z.CallbackUrlRegexp = ".*books.*catalogue.*index.*html"
 
 	// Remove fragment in crawled URL.
-	z.UnsafeNormalizeURL	= false
-	z.Impolite		= true
-	z.CancelOnDisconnect	= true
+	z.UnsafeNormalizeURL = false
+	z.Impolite = true
+	z.CancelOnDisconnect = true
 
 	// Time delay between each page crawling. Time delay will be randomly generated between MinDelay and MaxDelay(in Seconds).
-	z.MinDelay		= 1
-	z.MaxDelay		= 5
+	z.MinDelay = 1
+	z.MaxDelay = 5
 
 	z.Start()
 	// z.AddPage("http://books.toscrape.com/")
-	
+
 	for {
 		if z.IsAlive() {
-			time.Sleep(1*time.Second)
+			time.Sleep(1 * time.Second)
 		} else {
 			break
 		}

@@ -23,7 +23,7 @@ import (
 	"io/ioutil"
 	"time"
 
-	gc "github.com/ideas2it/ideacrawler/goclient"
+	gc "github.com/shsms/ideacrawler/goclient"
 )
 
 func main() {

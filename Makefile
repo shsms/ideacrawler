@@ -18,7 +18,7 @@ protopy:
 
 build: clean
 	mkdir -p build
-	GO111MODULE=on go build -o build/ideacrawler
+	GO111MODULE=on go build -mod=vendor -o build/ideacrawler
 
 buildall: clean proto build
 
@@ -26,4 +26,7 @@ install: build
 	cp build/ideacrawler $(GOBIN)/
 
 test:
-	GO111MODULE=on go test
+	GO111MODULE=on go test -mod=vendor
+
+vendor:
+	GO111MODULE=on go mod vendor -v

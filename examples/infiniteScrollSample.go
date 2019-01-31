@@ -23,7 +23,7 @@ import (
 	"io/ioutil"
 	"time"
 
-	gc "github.com/ideas2it/ideacrawler/goclient"
+	gc "github.com/shsms/ideacrawler/goclient"
 )
 
 func main() {
@@ -43,7 +43,7 @@ func main() {
 	z.MaxDelay = 5
 
 	//Need to enable chrome or not.
-	z.ChromeBinary  = "/bin/chrome"
+	z.ChromeBinary = "/bin/chrome"
 	z.Chrome = true
 	z.SeedURL = ""
 
