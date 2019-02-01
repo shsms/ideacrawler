@@ -37,7 +37,7 @@ type TestData struct {
 	name              string
 	seedURL           string
 	chrome            bool
-	maxIdleTime       int32
+	maxIdleTime       int64
 	depth             int32
 	followUrlRegexp   string
 	callbackUrlRegexp string

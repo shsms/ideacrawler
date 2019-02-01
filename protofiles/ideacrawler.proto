@@ -21,12 +21,18 @@ syntax = "proto3";
 package protofiles;
 
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
 
 service IdeaCrawler  {
   rpc AddDomainAndListen(DomainOpt) returns (stream PageHTML) {}
   rpc AddPages(stream PageRequest) returns (Status) {}
   rpc CancelJob(Subscription) returns (Status)  {}
   rpc GetAnalyzedURLs(Subscription) returns (stream UrlList)  {}
+  rpc GetWorkerID(google.protobuf.Empty) returns (WorkerID) {}
+}
+
+message WorkerID {
+  string ID = 1;
 }
 
 message Status {
@@ -77,7 +83,7 @@ message DomainOpt {
   //  in seconds, it is the time to wait for a new
   // page, before stopping the job; affects workerIdleTTL of fetchbot.
   // min value is 600, it is also default.
-  int32 maxIdleTime = 16;
+  int64 maxIdleTime = 16;
 
   bool followOtherDomains = 17;
   repeated string keepDomains = 18;

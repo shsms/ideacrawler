@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/google/uuid"
 	"github.com/hashicorp/yamux"
 	"github.com/shsms/ideacrawler/chromeclient"
@@ -34,6 +35,7 @@ type subscriber struct {
 }
 
 type ideaCrawlerWorker struct {
+	workerID   string
 	mode       int
 	jobs       map[string]*job
 	newJobChan chan<- newJob
@@ -356,6 +358,12 @@ func (s *ideaCrawlerWorker) AddDomainAndListen(opts *pb.DomainOpt, ostream pb.Id
 	return nil
 }
 
+func (s *ideaCrawlerWorker) GetWorkerID(context.Context, *empty.Empty) (*pb.WorkerID, error) {
+	return &pb.WorkerID{
+		ID: s.workerID,
+	}, nil
+}
+
 func newClusterWorkerListener() net.Listener {
 	conn, err := net.Dial("tcp", cliParams.Servers)
 	if err != nil {
@@ -383,6 +391,7 @@ func newServer(newJobChan chan<- newJob, newSubChan chan<- newSub) *ideaCrawlerW
 	s.jobs = make(map[string]*job)
 	s.newJobChan = newJobChan
 	s.newSubChan = newSubChan
+	s.workerID = uuid.New().String()
 	return s
 }
 

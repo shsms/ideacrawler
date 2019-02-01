@@ -29,4 +29,5 @@ test:
 	GO111MODULE=on go test -mod=vendor
 
 vendor:
+	if [ -d vendor ]; then rm -rf vendor; fi
 	GO111MODULE=on go mod vendor -v

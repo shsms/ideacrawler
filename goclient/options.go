@@ -26,7 +26,7 @@ func MaxDelay(vv int32) Option {
 	}
 }
 
-func MaxIdleTime(vv int32) Option {
+func MaxIdleTime(vv int64) Option {
 	return func(args *JobSpec) {
 		args.dopt.MaxIdleTime = vv
 	}

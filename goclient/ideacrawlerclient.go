@@ -93,6 +93,14 @@ func (w *Worker) Close() {
 	w.Conn.Close()
 }
 
+func (w *Worker) GetWorkerID() (string, error) {
+	wid, err := w.Client.GetWorkerID(context.Background(), nil)
+	if err != nil {
+		return "", err
+	}
+	return wid.ID, nil
+}
+
 func NewJobSpec(opts ...Option) *JobSpec {
 	dopt := &pb.DomainOpt{
 		MinDelay:              5,

@@ -87,7 +87,7 @@ func main() {
 		log.Fatal(err)
 	}
 	if mode == modeServer {
-		joinServerCluster()
+		startCrawlerServer()
 	} else {
 		startCrawlerWorker(mode)
 	}
