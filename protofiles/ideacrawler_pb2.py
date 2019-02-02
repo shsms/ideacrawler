@@ -13,7 +13,6 @@ from google.protobuf import symbol_database as _symbol_database
 _sym_db = _symbol_database.Default()
 
 
-from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
 
 
@@ -22,33 +21,10 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='protofiles',
   syntax='proto3',
   serialized_options=None,
-  serialized_pb=_b('\n\x11ideacrawler.proto\x12\nprotofiles\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1bgoogle/protobuf/empty.proto\"\x16\n\x08WorkerID\x12\n\n\x02ID\x18\x01 \x01(\t\"(\n\x06Status\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\r\n\x05\x65rror\x18\x02 \x01(\t\"!\n\x03KVP\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\xb5\x07\n\tDomainOpt\x12\x0f\n\x07seedUrl\x18\x01 \x01(\t\x12\x10\n\x08minDelay\x18\x02 \x01(\x05\x12\x10\n\x08maxDelay\x18\x03 \x01(\x05\x12\x10\n\x08noFollow\x18\x04 \x01(\x08\x12\x19\n\x11\x63\x61llbackUrlRegexp\x18\x05 \x01(\t\x12\x17\n\x0f\x66ollowUrlRegexp\x18\x06 \x01(\t\x12\x1d\n\x15maxConcurrentRequests\x18\x07 \x01(\x05\x12\x11\n\tuseragent\x18\x08 \x01(\t\x12\x10\n\x08impolite\x18\t \x01(\x08\x12\r\n\x05\x64\x65pth\x18\n \x01(\x05\x12\x16\n\x0eThreadsPerSite\x18\x0b \x01(\x03\x12+\n\x12\x63\x61llbackXpathMatch\x18\x0e \x03(\x0b\x32\x0f.protofiles.KVP\x12,\n\x13\x63\x61llbackXpathRegexp\x18\x0f \x03(\x0b\x32\x0f.protofiles.KVP\x12\x13\n\x0bmaxIdleTime\x18\x10 \x01(\x03\x12\x1a\n\x12\x66ollowOtherDomains\x18\x11 \x01(\x08\x12\x13\n\x0bkeepDomains\x18\x12 \x03(\t\x12\x13\n\x0b\x64ropDomains\x18\x13 \x03(\t\x12\x1a\n\x12\x64omainDropPriority\x18\x14 \x01(\x08\x12\x1a\n\x12unsafeNormalizeURL\x18\x15 \x01(\x08\x12\r\n\x05login\x18\x16 \x01(\x08\x12\x1a\n\x12loginUsingSelenium\x18\x17 \x01(\x08\x12\x10\n\x08loginUrl\x18\x18 \x01(\t\x12%\n\x0cloginPayload\x18\x19 \x03(\x0b\x32\x0f.protofiles.KVP\x12\x18\n\x10loginParseFields\x18\x1a \x01(\x08\x12(\n\x0floginParseXpath\x18\x1b \x03(\x0b\x32\x0f.protofiles.KVP\x12*\n\x11loginSuccessCheck\x18\x1c \x01(\x0b\x32\x0f.protofiles.KVP\x12\x1f\n\x17\x63heckLoginAfterEachPage\x18\x1d \x01(\x08\x12\x0f\n\x07loginJS\x18\x1e \x01(\t\x12\x0e\n\x06\x63hrome\x18\x1f \x01(\x08\x12\x14\n\x0c\x63hromeBinary\x18  \x01(\t\x12\x13\n\x0b\x64omLoadTime\x18! \x01(\x05\x12\x14\n\x0cnetworkIface\x18\" \x01(\t\x12\x1a\n\x12\x63\x61ncelOnDisconnect\x18# \x01(\x08\x12\x14\n\x0c\x63heckContent\x18$ \x01(\x08\x12\x10\n\x08prefetch\x18% \x01(\x08\x12 \n\x18\x63\x61llbackAnchorTextRegexp\x18\' \x01(\t\x12\x17\n\x0f\x63\x61llbackSeedUrl\x18( \x01(\x08\"\x97\x01\n\x0cSubscription\x12\x0f\n\x07subcode\x18\x01 \x01(\t\x12\x12\n\ndomainname\x18\x02 \x01(\t\x12$\n\x07subtype\x18\x03 \x01(\x0e\x32\x13.protofiles.SubType\x12\x0e\n\x06seqnum\x18\x04 \x01(\x05\x12,\n\x08\x64\x61tetime\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"\x9c\x01\n\x0bPageRequest\x12%\n\x03sub\x18\x01 \x01(\x0b\x32\x18.protofiles.Subscription\x12(\n\x07reqtype\x18\x02 \x01(\x0e\x32\x17.protofiles.PageReqType\x12\x0b\n\x03url\x18\x03 \x01(\t\x12\n\n\x02js\x18\x04 \x01(\t\x12\x12\n\nnoCallback\x18\x05 \x01(\x08\x12\x0f\n\x07metaStr\x18\x06 \x01(\t\"\xbe\x01\n\x08PageHTML\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\r\n\x05\x65rror\x18\x02 \x01(\t\x12%\n\x03sub\x18\x03 \x01(\x0b\x32\x18.protofiles.Subscription\x12\x0b\n\x03url\x18\x04 \x01(\t\x12\x16\n\x0ehttpstatuscode\x18\x05 \x01(\x05\x12\x0f\n\x07\x63ontent\x18\x06 \x01(\x0c\x12\x0f\n\x07metaStr\x18\x07 \x01(\t\x12\x10\n\x08urlDepth\x18\x08 \x01(\x05\x12\x12\n\nanchorText\x18\t \x01(\t\"9\n\x07UrlList\x12\x0b\n\x03url\x18\x01 \x03(\t\x12\x0f\n\x07metaStr\x18\x02 \x01(\t\x12\x10\n\x08urlDepth\x18\x03 \x01(\x05*#\n\x07SubType\x12\n\n\x06SEQNUM\x10\x00\x12\x0c\n\x08\x44\x41TETIME\x10\x01*<\n\x0bPageReqType\x12\x07\n\x03GET\x10\x00\x12\x08\n\x04HEAD\x10\x01\x12\r\n\tBUILTINJS\x10\x02\x12\x0b\n\x07JSCRIPT\x10\x03\x32\xd3\x02\n\x0bIdeaCrawler\x12\x45\n\x12\x41\x64\x64\x44omainAndListen\x12\x15.protofiles.DomainOpt\x1a\x14.protofiles.PageHTML\"\x00\x30\x01\x12;\n\x08\x41\x64\x64Pages\x12\x17.protofiles.PageRequest\x1a\x12.protofiles.Status\"\x00(\x01\x12;\n\tCancelJob\x12\x18.protofiles.Subscription\x1a\x12.protofiles.Status\"\x00\x12\x44\n\x0fGetAnalyzedURLs\x12\x18.protofiles.Subscription\x1a\x13.protofiles.UrlList\"\x00\x30\x01\x12=\n\x0bGetWorkerID\x12\x16.google.protobuf.Empty\x1a\x14.protofiles.WorkerID\"\x00\x62\x06proto3')
+  serialized_pb=_b('\n\x11ideacrawler.proto\x12\nprotofiles\x1a\x1bgoogle/protobuf/empty.proto\"\x16\n\x08WorkerID\x12\n\n\x02ID\x18\x01 \x01(\t\"(\n\x06Status\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\r\n\x05\x65rror\x18\x02 \x01(\t\"!\n\x03KVP\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\xb5\x07\n\tDomainOpt\x12\x0f\n\x07seedUrl\x18\x01 \x01(\t\x12\x10\n\x08minDelay\x18\x02 \x01(\x05\x12\x10\n\x08maxDelay\x18\x03 \x01(\x05\x12\x10\n\x08noFollow\x18\x04 \x01(\x08\x12\x19\n\x11\x63\x61llbackUrlRegexp\x18\x05 \x01(\t\x12\x17\n\x0f\x66ollowUrlRegexp\x18\x06 \x01(\t\x12\x1d\n\x15maxConcurrentRequests\x18\x07 \x01(\x05\x12\x11\n\tuseragent\x18\x08 \x01(\t\x12\x10\n\x08impolite\x18\t \x01(\x08\x12\r\n\x05\x64\x65pth\x18\n \x01(\x05\x12\x16\n\x0eThreadsPerSite\x18\x0b \x01(\x03\x12+\n\x12\x63\x61llbackXpathMatch\x18\x0e \x03(\x0b\x32\x0f.protofiles.KVP\x12,\n\x13\x63\x61llbackXpathRegexp\x18\x0f \x03(\x0b\x32\x0f.protofiles.KVP\x12\x13\n\x0bmaxIdleTime\x18\x10 \x01(\x03\x12\x1a\n\x12\x66ollowOtherDomains\x18\x11 \x01(\x08\x12\x13\n\x0bkeepDomains\x18\x12 \x03(\t\x12\x13\n\x0b\x64ropDomains\x18\x13 \x03(\t\x12\x1a\n\x12\x64omainDropPriority\x18\x14 \x01(\x08\x12\x1a\n\x12unsafeNormalizeURL\x18\x15 \x01(\x08\x12\r\n\x05login\x18\x16 \x01(\x08\x12\x1a\n\x12loginUsingSelenium\x18\x17 \x01(\x08\x12\x10\n\x08loginUrl\x18\x18 \x01(\t\x12%\n\x0cloginPayload\x18\x19 \x03(\x0b\x32\x0f.protofiles.KVP\x12\x18\n\x10loginParseFields\x18\x1a \x01(\x08\x12(\n\x0floginParseXpath\x18\x1b \x03(\x0b\x32\x0f.protofiles.KVP\x12*\n\x11loginSuccessCheck\x18\x1c \x01(\x0b\x32\x0f.protofiles.KVP\x12\x1f\n\x17\x63heckLoginAfterEachPage\x18\x1d \x01(\x08\x12\x0f\n\x07loginJS\x18\x1e \x01(\t\x12\x0e\n\x06\x63hrome\x18\x1f \x01(\x08\x12\x14\n\x0c\x63hromeBinary\x18  \x01(\t\x12\x13\n\x0b\x64omLoadTime\x18! \x01(\x05\x12\x14\n\x0cnetworkIface\x18\" \x01(\t\x12\x1a\n\x12\x63\x61ncelOnDisconnect\x18# \x01(\x08\x12\x14\n\x0c\x63heckContent\x18$ \x01(\x08\x12\x10\n\x08prefetch\x18% \x01(\x08\x12 \n\x18\x63\x61llbackAnchorTextRegexp\x18\' \x01(\t\x12\x17\n\x0f\x63\x61llbackSeedUrl\x18( \x01(\x08\"\x13\n\x05JobID\x12\n\n\x02ID\x18\x01 \x01(\t\"\x97\x01\n\x0bPageRequest\x12 \n\x05jobID\x18\x01 \x01(\x0b\x32\x11.protofiles.JobID\x12(\n\x07reqtype\x18\x02 \x01(\x0e\x32\x17.protofiles.PageReqType\x12\x0b\n\x03url\x18\x03 \x01(\t\x12\n\n\x02js\x18\x04 \x01(\t\x12\x12\n\nnoCallback\x18\x05 \x01(\x08\x12\x0f\n\x07metaStr\x18\x06 \x01(\t\"\xb9\x01\n\x08PageHTML\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\r\n\x05\x65rror\x18\x02 \x01(\t\x12 \n\x05jobID\x18\x03 \x01(\x0b\x32\x11.protofiles.JobID\x12\x0b\n\x03url\x18\x04 \x01(\t\x12\x16\n\x0ehttpstatuscode\x18\x05 \x01(\x05\x12\x0f\n\x07\x63ontent\x18\x06 \x01(\x0c\x12\x0f\n\x07metaStr\x18\x07 \x01(\t\x12\x10\n\x08urlDepth\x18\x08 \x01(\x05\x12\x12\n\nanchorText\x18\t \x01(\t\"9\n\x07UrlList\x12\x0b\n\x03url\x18\x01 \x03(\t\x12\x0f\n\x07metaStr\x18\x02 \x01(\t\x12\x10\n\x08urlDepth\x18\x03 \x01(\x05*<\n\x0bPageReqType\x12\x07\n\x03GET\x10\x00\x12\x08\n\x04HEAD\x10\x01\x12\r\n\tBUILTINJS\x10\x02\x12\x0b\n\x07JSCRIPT\x10\x03\x32\xc5\x02\n\x0bIdeaCrawler\x12\x45\n\x12\x41\x64\x64\x44omainAndListen\x12\x15.protofiles.DomainOpt\x1a\x14.protofiles.PageHTML\"\x00\x30\x01\x12;\n\x08\x41\x64\x64Pages\x12\x17.protofiles.PageRequest\x1a\x12.protofiles.Status\"\x00(\x01\x12\x34\n\tCancelJob\x12\x11.protofiles.JobID\x1a\x12.protofiles.Status\"\x00\x12=\n\x0fGetAnalyzedURLs\x12\x11.protofiles.JobID\x1a\x13.protofiles.UrlList\"\x00\x30\x01\x12=\n\x0bGetWorkerID\x12\x16.google.protobuf.Empty\x1a\x14.protofiles.WorkerID\"\x00\x62\x06proto3')
   ,
-  dependencies=[google_dot_protobuf_dot_timestamp__pb2.DESCRIPTOR,google_dot_protobuf_dot_empty__pb2.DESCRIPTOR,])
+  dependencies=[google_dot_protobuf_dot_empty__pb2.DESCRIPTOR,])
 
-_SUBTYPE = _descriptor.EnumDescriptor(
-  name='SubType',
-  full_name='protofiles.SubType',
-  filename=None,
-  file=DESCRIPTOR,
-  values=[
-    _descriptor.EnumValueDescriptor(
-      name='SEQNUM', index=0, number=0,
-      serialized_options=None,
-      type=None),
-    _descriptor.EnumValueDescriptor(
-      name='DATETIME', index=1, number=1,
-      serialized_options=None,
-      type=None),
-  ],
-  containing_type=None,
-  serialized_options=None,
-  serialized_start=1713,
-  serialized_end=1748,
-)
-_sym_db.RegisterEnumDescriptor(_SUBTYPE)
-
-SubType = enum_type_wrapper.EnumTypeWrapper(_SUBTYPE)
 _PAGEREQTYPE = _descriptor.EnumDescriptor(
   name='PageReqType',
   full_name='protofiles.PageReqType',
@@ -74,14 +50,12 @@ _PAGEREQTYPE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=1750,
-  serialized_end=1810,
+  serialized_start=1537,
+  serialized_end=1597,
 )
 _sym_db.RegisterEnumDescriptor(_PAGEREQTYPE)
 
 PageReqType = enum_type_wrapper.EnumTypeWrapper(_PAGEREQTYPE)
-SEQNUM = 0
-DATETIME = 1
 GET = 0
 HEAD = 1
 BUILTINJS = 2
@@ -115,8 +89,8 @@ _WORKERID = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=95,
-  serialized_end=117,
+  serialized_start=62,
+  serialized_end=84,
 )
 
 
@@ -153,8 +127,8 @@ _STATUS = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=119,
-  serialized_end=159,
+  serialized_start=86,
+  serialized_end=126,
 )
 
 
@@ -191,8 +165,8 @@ _KVP = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=161,
-  serialized_end=194,
+  serialized_start=128,
+  serialized_end=161,
 )
 
 
@@ -474,50 +448,22 @@ _DOMAINOPT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=197,
-  serialized_end=1146,
+  serialized_start=164,
+  serialized_end=1113,
 )
 
 
-_SUBSCRIPTION = _descriptor.Descriptor(
-  name='Subscription',
-  full_name='protofiles.Subscription',
+_JOBID = _descriptor.Descriptor(
+  name='JobID',
+  full_name='protofiles.JobID',
   filename=None,
   file=DESCRIPTOR,
   containing_type=None,
   fields=[
     _descriptor.FieldDescriptor(
-      name='subcode', full_name='protofiles.Subscription.subcode', index=0,
+      name='ID', full_name='protofiles.JobID.ID', index=0,
       number=1, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR),
-    _descriptor.FieldDescriptor(
-      name='domainname', full_name='protofiles.Subscription.domainname', index=1,
-      number=2, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=_b("").decode('utf-8'),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR),
-    _descriptor.FieldDescriptor(
-      name='subtype', full_name='protofiles.Subscription.subtype', index=2,
-      number=3, type=14, cpp_type=8, label=1,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR),
-    _descriptor.FieldDescriptor(
-      name='seqnum', full_name='protofiles.Subscription.seqnum', index=3,
-      number=4, type=5, cpp_type=1, label=1,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR),
-    _descriptor.FieldDescriptor(
-      name='datetime', full_name='protofiles.Subscription.datetime', index=4,
-      number=5, type=11, cpp_type=10, label=1,
-      has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
@@ -533,8 +479,8 @@ _SUBSCRIPTION = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1149,
-  serialized_end=1300,
+  serialized_start=1115,
+  serialized_end=1134,
 )
 
 
@@ -546,7 +492,7 @@ _PAGEREQUEST = _descriptor.Descriptor(
   containing_type=None,
   fields=[
     _descriptor.FieldDescriptor(
-      name='sub', full_name='protofiles.PageRequest.sub', index=0,
+      name='jobID', full_name='protofiles.PageRequest.jobID', index=0,
       number=1, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
@@ -599,8 +545,8 @@ _PAGEREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1303,
-  serialized_end=1459,
+  serialized_start=1137,
+  serialized_end=1288,
 )
 
 
@@ -626,7 +572,7 @@ _PAGEHTML = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='sub', full_name='protofiles.PageHTML.sub', index=2,
+      name='jobID', full_name='protofiles.PageHTML.jobID', index=2,
       number=3, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
@@ -686,8 +632,8 @@ _PAGEHTML = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1462,
-  serialized_end=1652,
+  serialized_start=1291,
+  serialized_end=1476,
 )
 
 
@@ -731,8 +677,8 @@ _URLLIST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1654,
-  serialized_end=1711,
+  serialized_start=1478,
+  serialized_end=1535,
 )
 
 _DOMAINOPT.fields_by_name['callbackXpathMatch'].message_type = _KVP
@@ -740,20 +686,17 @@ _DOMAINOPT.fields_by_name['callbackXpathRegexp'].message_type = _KVP
 _DOMAINOPT.fields_by_name['loginPayload'].message_type = _KVP
 _DOMAINOPT.fields_by_name['loginParseXpath'].message_type = _KVP
 _DOMAINOPT.fields_by_name['loginSuccessCheck'].message_type = _KVP
-_SUBSCRIPTION.fields_by_name['subtype'].enum_type = _SUBTYPE
-_SUBSCRIPTION.fields_by_name['datetime'].message_type = google_dot_protobuf_dot_timestamp__pb2._TIMESTAMP
-_PAGEREQUEST.fields_by_name['sub'].message_type = _SUBSCRIPTION
+_PAGEREQUEST.fields_by_name['jobID'].message_type = _JOBID
 _PAGEREQUEST.fields_by_name['reqtype'].enum_type = _PAGEREQTYPE
-_PAGEHTML.fields_by_name['sub'].message_type = _SUBSCRIPTION
+_PAGEHTML.fields_by_name['jobID'].message_type = _JOBID
 DESCRIPTOR.message_types_by_name['WorkerID'] = _WORKERID
 DESCRIPTOR.message_types_by_name['Status'] = _STATUS
 DESCRIPTOR.message_types_by_name['KVP'] = _KVP
 DESCRIPTOR.message_types_by_name['DomainOpt'] = _DOMAINOPT
-DESCRIPTOR.message_types_by_name['Subscription'] = _SUBSCRIPTION
+DESCRIPTOR.message_types_by_name['JobID'] = _JOBID
 DESCRIPTOR.message_types_by_name['PageRequest'] = _PAGEREQUEST
 DESCRIPTOR.message_types_by_name['PageHTML'] = _PAGEHTML
 DESCRIPTOR.message_types_by_name['UrlList'] = _URLLIST
-DESCRIPTOR.enum_types_by_name['SubType'] = _SUBTYPE
 DESCRIPTOR.enum_types_by_name['PageReqType'] = _PAGEREQTYPE
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
@@ -785,12 +728,12 @@ DomainOpt = _reflection.GeneratedProtocolMessageType('DomainOpt', (_message.Mess
   ))
 _sym_db.RegisterMessage(DomainOpt)
 
-Subscription = _reflection.GeneratedProtocolMessageType('Subscription', (_message.Message,), dict(
-  DESCRIPTOR = _SUBSCRIPTION,
+JobID = _reflection.GeneratedProtocolMessageType('JobID', (_message.Message,), dict(
+  DESCRIPTOR = _JOBID,
   __module__ = 'ideacrawler_pb2'
-  # @@protoc_insertion_point(class_scope:protofiles.Subscription)
+  # @@protoc_insertion_point(class_scope:protofiles.JobID)
   ))
-_sym_db.RegisterMessage(Subscription)
+_sym_db.RegisterMessage(JobID)
 
 PageRequest = _reflection.GeneratedProtocolMessageType('PageRequest', (_message.Message,), dict(
   DESCRIPTOR = _PAGEREQUEST,
@@ -821,8 +764,8 @@ _IDEACRAWLER = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   serialized_options=None,
-  serialized_start=1813,
-  serialized_end=2152,
+  serialized_start=1600,
+  serialized_end=1925,
   methods=[
   _descriptor.MethodDescriptor(
     name='AddDomainAndListen',
@@ -847,7 +790,7 @@ _IDEACRAWLER = _descriptor.ServiceDescriptor(
     full_name='protofiles.IdeaCrawler.CancelJob',
     index=2,
     containing_service=None,
-    input_type=_SUBSCRIPTION,
+    input_type=_JOBID,
     output_type=_STATUS,
     serialized_options=None,
   ),
@@ -856,7 +799,7 @@ _IDEACRAWLER = _descriptor.ServiceDescriptor(
     full_name='protofiles.IdeaCrawler.GetAnalyzedURLs',
     index=3,
     containing_service=None,
-    input_type=_SUBSCRIPTION,
+    input_type=_JOBID,
     output_type=_URLLIST,
     serialized_options=None,
   ),

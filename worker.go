@@ -12,7 +12,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/google/uuid"
 	"github.com/hashicorp/yamux"
@@ -58,7 +57,7 @@ type newJob struct {
 }
 
 type newSub struct {
-	sub     pb.Subscription
+	sub     pb.JobID
 	retChan chan<- newJobStatus
 }
 
@@ -120,13 +119,9 @@ func (s *ideaCrawlerWorker) addNewJob(nj newJob) {
 		nj.retChan <- jobStatusFailureMessage(err)
 		return
 	}
-	emptyTS, _ := ptypes.TimestampProto(time.Time{})
-	sub := pb.Subscription{
-		Subcode:    uuid.New().String(),
-		Domainname: domainname,
-		Subtype:    pb.SubType_SEQNUM,
-		Seqnum:     0,
-		Datetime:   emptyTS,
+
+	sub := pb.JobID{
+		ID: uuid.New().String(),
 	}
 
 	subr := &subscriber{}
@@ -168,7 +163,7 @@ func (s *ideaCrawlerWorker) addNewJob(nj newJob) {
 	j := &job{
 		domainname:               domainname,
 		opts:                     nj.opts,
-		sub:                      sub,
+		id:                       sub,
 		seqnum:                   0,
 		callbackURLRegexp:        callbackURLRegexp,
 		followURLRegexp:          followURLRegexp,
@@ -181,9 +176,9 @@ func (s *ideaCrawlerWorker) addNewJob(nj newJob) {
 		randChan:                 randChan,
 		log:                      nil,
 	}
-	s.jobs[sub.Subcode] = j
+	s.jobs[sub.ID] = j
 	go randomGenerator(int(nj.opts.MinDelay), int(nj.opts.MaxDelay), randChan)
-	go s.RunJob(sub.Subcode, j)
+	go s.RunJob(sub.ID, j)
 	nj.retChan <- newJobStatus{
 		job: j,
 		err: nil,
@@ -196,11 +191,11 @@ func (s *ideaCrawlerWorker) jobManager(newJobChan <-chan newJob, newSubChan <-ch
 		case nj := <-newJobChan:
 			s.addNewJob(nj)
 		case ns := <-newSubChan:
-			job := s.jobs[ns.sub.Subcode]
+			job := s.jobs[ns.sub.ID]
 			if job == nil {
 				ns.retChan <- newJobStatus{
 					job: nil,
-					err: errors.New("Unable to find subcode - " + ns.sub.Subcode),
+					err: errors.New("Unable to find subcode - " + ns.sub.ID),
 				}
 				continue
 			}
@@ -233,13 +228,13 @@ func (s *ideaCrawlerWorker) AddPages(stream pb.IdeaCrawler_AddPagesServer) error
 		log.Println(emsg)
 		return errors.New(emsg)
 	}
-	if pgreq1.Sub == nil {
+	if pgreq1.JobID == nil {
 		emsg := fmt.Sprintf("Received pagereq with nil sub object. Exiting AddPages.  PageReq - %v", pgreq1)
 		log.Println(emsg)
 		return errors.New(emsg)
 	}
 	retChan := make(chan newJobStatus)
-	s.newSubChan <- newSub{*pgreq1.Sub, retChan}
+	s.newSubChan <- newSub{*pgreq1.JobID, retChan}
 	njs := <-retChan
 	if njs.err != nil {
 		return njs.err
@@ -247,7 +242,7 @@ func (s *ideaCrawlerWorker) AddPages(stream pb.IdeaCrawler_AddPagesServer) error
 	job := njs.job
 	reqChan := job.subscriber.reqChan
 	reqChan <- *pgreq1
-	log.Printf("Adding new page for job '%v': %v", pgreq1.Sub.Subcode, pgreq1.Url)
+	log.Printf("Adding new page for job '%v': %v", pgreq1.JobID.ID, pgreq1.Url)
 	for {
 		pgreq, err := stream.Recv()
 		if err == io.EOF {
@@ -268,17 +263,17 @@ func (s *ideaCrawlerWorker) AddPages(stream pb.IdeaCrawler_AddPagesServer) error
 			time.Sleep(10 * time.Millisecond)
 		}
 		reqChan <- *pgreq
-		log.Printf("Adding new page for job '%v': %v", pgreq.Sub.Subcode, pgreq.Url)
+		log.Printf("Adding new page for job '%v': %v", pgreq.JobID.ID, pgreq.Url)
 	}
 }
 
-func (s *ideaCrawlerWorker) CancelJob(ctx context.Context, sub *pb.Subscription) (*pb.Status, error) {
+func (s *ideaCrawlerWorker) CancelJob(ctx context.Context, sub *pb.JobID) (*pb.Status, error) {
 	if sub == nil {
 		emsg := "Received nil subscription in CancelJob.  Not canceling anything."
 		log.Println(emsg)
 		return &pb.Status{Success: false, Error: emsg}, errors.New(emsg)
 	}
-	log.Println("Cancel request received for job:", sub.Subcode)
+	log.Println("Cancel request received for job:", sub.ID)
 	retChan := make(chan newJobStatus)
 	s.newSubChan <- newSub{*sub, retChan}
 	njs := <-retChan
@@ -290,13 +285,13 @@ func (s *ideaCrawlerWorker) CancelJob(ctx context.Context, sub *pb.Subscription)
 	return &pb.Status{Success: true, Error: ""}, nil
 }
 
-func (s *ideaCrawlerWorker) GetAnalyzedURLs(sub *pb.Subscription, ostream pb.IdeaCrawler_GetAnalyzedURLsServer) error {
+func (s *ideaCrawlerWorker) GetAnalyzedURLs(sub *pb.JobID, ostream pb.IdeaCrawler_GetAnalyzedURLsServer) error {
 	if sub == nil {
 		emsg := "Received nil subscription in GetAnalyzedURLs.  Not requesting analyzed urls."
 		log.Println(emsg)
 		return errors.New(emsg)
 	}
-	log.Println("Analyzed urls request received for job:", sub.Subcode)
+	log.Println("Analyzed urls request received for job:", sub.ID)
 	retChan := make(chan newJobStatus)
 	s.newSubChan <- newSub{*sub, retChan}
 	njs := <-retChan
@@ -315,7 +310,7 @@ func (s *ideaCrawlerWorker) GetAnalyzedURLs(sub *pb.Subscription, ostream pb.Ide
 	for urlList := range job.subscriber.analyzedURLChan {
 		err := ostream.Send(&urlList)
 		if err != nil {
-			log.Printf("Failed to send analyzed urls to client. No longer trying - %v. Error - %v\n", job.sub.Subcode, err)
+			log.Printf("Failed to send analyzed urls to client. No longer trying - %v. Error - %v\n", job.id.ID, err)
 			job.subscriber.stopAnalyzedURLChan <- true
 			return err
 		}
@@ -334,18 +329,18 @@ func (s *ideaCrawlerWorker) AddDomainAndListen(opts *pb.DomainOpt, ostream pb.Id
 	if job.subscriber.connected == false {
 		return errors.New("Subscriber object not created")
 	}
-	log.Println("Sending subscription object to client:", job.sub.Subcode)
+	log.Println("Sending subscription object to client:", job.id.ID)
 	// send an empty pagehtml with just the subscription object,  as soon as job starts.
 	err := ostream.Send(&pb.PageHTML{
 		Success:        true,
 		Error:          "subscription.object",
-		Sub:            &job.sub,
+		JobID:          &job.id,
 		Url:            "",
 		Httpstatuscode: sc.Subscription,
 		Content:        []byte{},
 	})
 	if err != nil {
-		log.Printf("Failed to send sub object to client. Cancelling job - %v. Error - %v\n", job.sub.Subcode, err)
+		log.Printf("Failed to send sub object to client. Cancelling job - %v. Error - %v\n", job.id.ID, err)
 		job.subscriber.stopChan <- true
 		return err
 	}
@@ -353,7 +348,7 @@ func (s *ideaCrawlerWorker) AddDomainAndListen(opts *pb.DomainOpt, ostream pb.Id
 	for pagehtml := range job.subscriber.sendChan {
 		err := ostream.Send(&pagehtml)
 		if err != nil {
-			log.Printf("Failed to send page back to client. No longer trying - %v. Error - %v\n", job.sub.Subcode, err)
+			log.Printf("Failed to send page back to client. No longer trying - %v. Error - %v\n", job.id.ID, err)
 			job.subscriber.stopChan <- true
 			return err
 		}

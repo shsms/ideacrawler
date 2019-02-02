@@ -27,12 +27,12 @@ class IdeaCrawlerStub(object):
         )
     self.CancelJob = channel.unary_unary(
         '/protofiles.IdeaCrawler/CancelJob',
-        request_serializer=ideacrawler__pb2.Subscription.SerializeToString,
+        request_serializer=ideacrawler__pb2.JobID.SerializeToString,
         response_deserializer=ideacrawler__pb2.Status.FromString,
         )
     self.GetAnalyzedURLs = channel.unary_stream(
         '/protofiles.IdeaCrawler/GetAnalyzedURLs',
-        request_serializer=ideacrawler__pb2.Subscription.SerializeToString,
+        request_serializer=ideacrawler__pb2.JobID.SerializeToString,
         response_deserializer=ideacrawler__pb2.UrlList.FromString,
         )
     self.GetWorkerID = channel.unary_unary(
@@ -96,12 +96,12 @@ def add_IdeaCrawlerServicer_to_server(servicer, server):
       ),
       'CancelJob': grpc.unary_unary_rpc_method_handler(
           servicer.CancelJob,
-          request_deserializer=ideacrawler__pb2.Subscription.FromString,
+          request_deserializer=ideacrawler__pb2.JobID.FromString,
           response_serializer=ideacrawler__pb2.Status.SerializeToString,
       ),
       'GetAnalyzedURLs': grpc.unary_stream_rpc_method_handler(
           servicer.GetAnalyzedURLs,
-          request_deserializer=ideacrawler__pb2.Subscription.FromString,
+          request_deserializer=ideacrawler__pb2.JobID.FromString,
           response_serializer=ideacrawler__pb2.UrlList.SerializeToString,
       ),
       'GetWorkerID': grpc.unary_unary_rpc_method_handler(

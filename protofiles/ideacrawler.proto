@@ -20,14 +20,13 @@ syntax = "proto3";
 
 package protofiles;
 
-import "google/protobuf/timestamp.proto";
 import "google/protobuf/empty.proto";
 
 service IdeaCrawler  {
   rpc AddDomainAndListen(DomainOpt) returns (stream PageHTML) {}
   rpc AddPages(stream PageRequest) returns (Status) {}
-  rpc CancelJob(Subscription) returns (Status)  {}
-  rpc GetAnalyzedURLs(Subscription) returns (stream UrlList)  {}
+  rpc CancelJob(JobID) returns (Status)  {}
+  rpc GetAnalyzedURLs(JobID) returns (stream UrlList)  {}
   rpc GetWorkerID(google.protobuf.Empty) returns (WorkerID) {}
 }
 
@@ -140,20 +139,8 @@ message DomainOpt {
   bool callbackSeedUrl = 40;
 }
 
-//Subscription type
-enum SubType {
-  // crawler will remember sequence number of each page stored, so we can start back exactly where we left off
-  SEQNUM     = 0;
-  // if we know only the time when we left off,  or if we want to start reading from a certain day's run
-  DATETIME   = 1;
-}
-
-message Subscription {
-  string  subcode = 1;
-  string  domainname = 2;
-  SubType subtype = 3;
-  int32   seqnum  = 4;
-  google.protobuf.Timestamp datetime = 5;
+message JobID {
+  string  ID = 1;
 }
 
 enum PageReqType {
@@ -167,7 +154,7 @@ enum PageReqType {
 }
 
 message PageRequest {
-  Subscription sub = 1;
+  JobID jobID = 1;
   PageReqType reqtype = 2;
   string  url = 3;
   string  js = 4;
@@ -179,7 +166,7 @@ message PageRequest {
 message PageHTML {
   bool   success = 1;
   string error = 2;
-  Subscription sub = 3;
+  JobID jobID = 3;
   string url = 4;
   int32  httpstatuscode = 5;
   bytes content = 6;

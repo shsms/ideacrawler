@@ -33,7 +33,7 @@ import (
 )
 
 type PageHTML = pb.PageHTML
-type Subscription = pb.Subscription
+type JobID = pb.JobID
 
 type Worker struct {
 	Conn   *grpc.ClientConn
@@ -60,7 +60,7 @@ type CrawlJob struct {
 	stoppedChan    chan struct{} // if this is closed, job has stopped.
 	addPagesClient pb.IdeaCrawler_AddPagesClient
 	jobClient      pb.IdeaCrawler_AddDomainAndListenClient
-	sub            *pb.Subscription
+	id             *pb.JobID
 
 	PageChan        <-chan *pb.PageHTML
 	AnalyzedURLChan <-chan *pb.UrlList
@@ -126,7 +126,7 @@ func NewCrawlJob(w *Worker, spec *JobSpec) (*CrawlJob, error) {
 		log.Println("Box is possibly down. AddDomainAndListen failed:", err)
 		return nil, err
 	}
-	subpage, err := jobClient.Recv()
+	jobIDPage, err := jobClient.Recv()
 	if err != nil {
 		fmt.Println(err)
 		return nil, err
@@ -137,7 +137,7 @@ func NewCrawlJob(w *Worker, spec *JobSpec) (*CrawlJob, error) {
 		spec:            spec,
 		startedChan:     make(chan struct{}),
 		stoppedChan:     make(chan struct{}),
-		sub:             subpage.Sub,
+		id:              jobIDPage.JobID,
 		jobClient:       jobClient,
 		PageChan:        spec.implPageChan,
 		AnalyzedURLChan: spec.implAnalyzedURLChan,
@@ -153,11 +153,11 @@ func (cj *CrawlJob) initAnalyzedURL() {
 	if cj.spec.useAnalyzedURLChan == false {
 		return
 	}
-	if cj.sub == nil {
+	if cj.id == nil {
 		log.Println("No job subscription. SetAnalyzedURLs failed.")
 		return
 	}
-	urlstream, err := cj.Worker.Client.GetAnalyzedURLs(context.Background(), cj.sub, grpc.MaxCallRecvMsgSize((2*1024*1024*1024)-1))
+	urlstream, err := cj.Worker.Client.GetAnalyzedURLs(context.Background(), cj.id, grpc.MaxCallRecvMsgSize((2*1024*1024*1024)-1))
 	if err != nil {
 		log.Println("Box is possibly down. SetAnalyzedURLs failed:", err)
 		return
@@ -194,7 +194,7 @@ func (cj *CrawlJob) AddPage(url, metaStr string) error {
 		}
 	}
 	return cj.addPagesClient.Send(&pb.PageRequest{
-		Sub:     cj.sub,
+		JobID:   cj.id,
 		Reqtype: pb.PageReqType_GET,
 		Url:     url,
 		MetaStr: metaStr,
@@ -216,7 +216,7 @@ func (cj *CrawlJob) AddJS(typ pb.PageReqType, url, js, metaStr string) error {
 		}
 	}
 	return cj.addPagesClient.Send(&pb.PageRequest{
-		Sub:     cj.sub,
+		JobID:   cj.id,
 		Reqtype: typ,
 		Url:     url,
 		Js:      js,
@@ -243,7 +243,7 @@ func (cj *CrawlJob) IsAlive() bool {
 
 func (cj *CrawlJob) Stop() {
 	if cj.IsAlive() {
-		cj.Worker.Client.CancelJob(context.Background(), cj.sub)
+		cj.Worker.Client.CancelJob(context.Background(), cj.id)
 	}
 }
 

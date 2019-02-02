@@ -33,7 +33,7 @@ import (
 type job struct {
 	domainname               string
 	opts                     *pb.DomainOpt
-	sub                      pb.Subscription
+	id                       pb.JobID
 	seqnum                   int32
 	callbackURLRegexp        *regexp.Regexp
 	followURLRegexp          *regexp.Regexp
@@ -52,6 +52,11 @@ type job struct {
 func (j *job) sendPageHTML(ctx *fetchbot.Context, phtml pb.PageHTML) {
 	if j.subscriber.connected == false {
 		j.log.Println("Client not connected")
+		return
+	}
+
+	if j.done() {
+		j.log.Println("job has finished. can't send pages")
 		return
 	}
 	select {
@@ -84,11 +89,14 @@ func (j *job) setupJobLogger(subID string) error {
 }
 
 func (j *job) fetchErrorHandler(ctx *fetchbot.Context, res *http.Response, err error) {
+	if j.done() {
+		return
+	}
 	j.log.Printf("ERR - fetch error : %s\n", err.Error())
 	phtml := pb.PageHTML{
 		Success: false,
 		Error:   err.Error(),
-		Sub:     &pb.Subscription{},
+		JobID:   &pb.JobID{},
 		//TODO -- Check if ctx always has the correct URL
 		Url:            ctx.Cmd.URL().String(),
 		Httpstatuscode: sc.FetchbotError,
@@ -101,6 +109,9 @@ func (j *job) fetchErrorHandler(ctx *fetchbot.Context, res *http.Response, err e
 }
 
 func (j *job) fetchHTTPGetHandler(ctx *fetchbot.Context, res *http.Response, err error) {
+	if j.done() {
+		return
+	}
 	requestURL := res.Request.URL
 	ccmd := ctx.Cmd.(crawlCommand)
 	anchorText := ccmd.anchorText
@@ -113,7 +124,7 @@ func (j *job) fetchHTTPGetHandler(ctx *fetchbot.Context, res *http.Response, err
 			phtml := pb.PageHTML{
 				Success:        false,
 				Error:          res.Status,
-				Sub:            &pb.Subscription{},
+				JobID:          &pb.JobID{},
 				Url:            requestURL.String(),
 				Httpstatuscode: int32(res.StatusCode),
 				Content:        []byte{},
@@ -131,7 +142,7 @@ func (j *job) fetchHTTPGetHandler(ctx *fetchbot.Context, res *http.Response, err
 		phtml := pb.PageHTML{
 			Success:        false,
 			Error:          emsg,
-			Sub:            &pb.Subscription{},
+			JobID:          &pb.JobID{},
 			Url:            requestURL.String(),
 			Httpstatuscode: sc.ResponseError,
 			MetaStr:        ctx.Cmd.(crawlCommand).MetaStr(),
@@ -155,7 +166,7 @@ func (j *job) fetchHTTPGetHandler(ctx *fetchbot.Context, res *http.Response, err
 			phtml := pb.PageHTML{
 				Success:        false,
 				Error:          errMsg,
-				Sub:            nil, //no subscription object
+				JobID:          nil, //no subscription object
 				Url:            "",
 				Httpstatuscode: sc.NolongerLoggedIn,
 				Content:        []byte{},
@@ -183,7 +194,7 @@ func (j *job) fetchHTTPGetHandler(ctx *fetchbot.Context, res *http.Response, err
 			phtml := pb.PageHTML{
 				Success:        false,
 				Error:          emsg,
-				Sub:            &pb.Subscription{},
+				JobID:          &pb.JobID{},
 				Url:            "",
 				Httpstatuscode: sc.FollowParseError,
 				Content:        []byte{},
@@ -272,12 +283,12 @@ func (j *job) fetchHTTPGetHandler(ctx *fetchbot.Context, res *http.Response, err
 	}
 	j.log.Println("Shipping", shippingURL)
 
-	sub := j.sub
+	sub := j.id
 
 	phtml := pb.PageHTML{
 		Success:        true,
 		Error:          "",
-		Sub:            &sub,
+		JobID:          &sub,
 		Url:            shippingURL,
 		Httpstatuscode: int32(res.StatusCode),
 		Content:        pageBody,
@@ -289,6 +300,9 @@ func (j *job) fetchHTTPGetHandler(ctx *fetchbot.Context, res *http.Response, err
 }
 
 func (j *job) fetchHTTPHeadHandler(ctx *fetchbot.Context, res *http.Response, err error) {
+	if j.done() {
+		return
+	}
 	cmd := crawlCommand{
 		method:     "GET",
 		url:        ctx.Cmd.URL(),
@@ -334,7 +348,7 @@ func (s *ideaCrawlerWorker) makeHTTPClientRawDirect(j *job, networkTransport htt
 	if j.opts.Prefetch == true {
 		httpClient.Transport = &httpcache.Transport{
 			Transport:           networkTransport,
-			Cache:               diskcache.New("/tmp/ideacache/" + j.sub.Subcode),
+			Cache:               diskcache.New("/tmp/ideacache/" + j.id.ID),
 			MarkCachedResponses: true,
 		}
 	}
@@ -355,7 +369,7 @@ func (s *ideaCrawlerWorker) makeHTTPClientLoginDirect(j *job, networkTransport h
 	if j.opts.Prefetch == true {
 		httpClient.Transport = &httpcache.Transport{
 			Transport:           networkTransport,
-			Cache:               diskcache.New("/tmp/ideacache/" + j.sub.Subcode),
+			Cache:               diskcache.New("/tmp/ideacache/" + j.id.ID),
 			MarkCachedResponses: true,
 		}
 	}
@@ -441,7 +455,7 @@ func (s *ideaCrawlerWorker) makeHTTPClientLoginDirect(j *job, networkTransport h
 			phtml := pb.PageHTML{
 				Success:        false,
 				Error:          errMsg,
-				Sub:            nil, //no subscription object
+				JobID:          nil, //no subscription object
 				Url:            "",
 				Httpstatuscode: sc.LoginFailed,
 				Content:        []byte{},
@@ -452,7 +466,7 @@ func (s *ideaCrawlerWorker) makeHTTPClientLoginDirect(j *job, networkTransport h
 		phtml := pb.PageHTML{
 			Success:        true,
 			Error:          "",
-			Sub:            nil, //no subscription object
+			JobID:          nil, //no subscription object
 			Url:            "",
 			Httpstatuscode: sc.LoginSuccess,
 			Content:        []byte{},
@@ -548,7 +562,7 @@ func (s *ideaCrawlerWorker) makeHTTPClientLoginChrome(j *job) (fetchbot.Doer, er
 			phtml := pb.PageHTML{
 				Success:        false,
 				Error:          errMsg,
-				Sub:            nil, //no subscription object
+				JobID:          nil, //no subscription object
 				Url:            "",
 				Httpstatuscode: sc.LoginFailed,
 				Content:        []byte{},
@@ -559,7 +573,7 @@ func (s *ideaCrawlerWorker) makeHTTPClientLoginChrome(j *job) (fetchbot.Doer, er
 		phtml := pb.PageHTML{
 			Success:        true,
 			Error:          "",
-			Sub:            nil, //no subscription object
+			JobID:          nil, //no subscription object
 			Url:            "",
 			Httpstatuscode: sc.LoginSuccess,
 			Content:        []byte{},
@@ -591,7 +605,11 @@ func (s *ideaCrawlerWorker) RunJob(subID string, j *job) {
 	j.log.Println("starting job -", subID)
 	defer func() {
 		close(j.subscriber.sendChan)
-		close(j.doneChan)
+		select {
+		case <-j.doneChan:
+		default:
+			close(j.doneChan)
+		}
 		j.log.Println("stopping job -", subID)
 	}()
 
@@ -653,7 +671,12 @@ func (s *ideaCrawlerWorker) RunJob(subID string, j *job) {
 		select {
 		case <-j.doneChan:
 			return
+		case <-j.subscriber.stopChan:
+			close(j.doneChan)
+			q.Cancel()
+			j.log.Println("Cancelled job:", subID)
 		case <-j.cancelChan:
+			close(j.doneChan)
 			q.Cancel()
 			j.log.Println("Cancelled job:", subID)
 		}
