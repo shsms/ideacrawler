@@ -61,8 +61,8 @@ func (gc *Doer) Do(req *http.Request) (*http.Response, error) {
 	}
 	// randomized delay
 	afterTime := opts.MinDelay
-	if afterTime < 5 {
-		afterTime = 5
+	if afterTime < 1 {
+		afterTime = 1
 	}
 	if opts.MaxDelay > afterTime {
 		afterTime = int32(<-gc.job.randChan)
@@ -87,7 +87,7 @@ func (gc *Doer) Do(req *http.Request) (*http.Response, error) {
 		resp.Body = ioutil.NopCloser(bytes.NewBuffer(respBody))
 	}
 	<-after
-	return resp, err
+	return resp, nil
 }
 
 func randomGenerator(min int, max int, randChan chan<- int) {

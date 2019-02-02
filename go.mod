@@ -17,7 +17,7 @@ require (
 	github.com/petar/GoLLRB v0.0.0-20130427215148-53be0d36a84c // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/phayes/freeport v0.0.0-20171002181615-b8543db493a5
-	github.com/shsms-i2i/sflag v0.0.0-20160229091130-0ec38aa16580 // indirect
+	github.com/shsms/fetchbot v1.1.3-0.20190202140914-775bee3cb83a
 	github.com/shsms/sflag v0.0.0-20160229091130-0ec38aa16580
 	github.com/temoto/robotstxt-go v0.0.0-20180810133444-97ee4a9ee6ea // indirect
 	golang.org/x/net v0.0.0-20190107155100-1a61f4433d85

@@ -22,7 +22,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='protofiles',
   syntax='proto3',
   serialized_options=None,
-  serialized_pb=_b('\n\x11ideacrawler.proto\x12\nprotofiles\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1bgoogle/protobuf/empty.proto\"\x16\n\x08WorkerID\x12\n\n\x02ID\x18\x01 \x01(\t\"(\n\x06Status\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\r\n\x05\x65rror\x18\x02 \x01(\t\"!\n\x03KVP\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\x9d\x07\n\tDomainOpt\x12\x0f\n\x07seedUrl\x18\x01 \x01(\t\x12\x10\n\x08minDelay\x18\x02 \x01(\x05\x12\x10\n\x08maxDelay\x18\x03 \x01(\x05\x12\x10\n\x08noFollow\x18\x04 \x01(\x08\x12\x19\n\x11\x63\x61llbackUrlRegexp\x18\x05 \x01(\t\x12\x17\n\x0f\x66ollowUrlRegexp\x18\x06 \x01(\t\x12\x1d\n\x15maxConcurrentRequests\x18\x07 \x01(\x05\x12\x11\n\tuseragent\x18\x08 \x01(\t\x12\x10\n\x08impolite\x18\t \x01(\x08\x12\r\n\x05\x64\x65pth\x18\n \x01(\x05\x12+\n\x12\x63\x61llbackXpathMatch\x18\x0e \x03(\x0b\x32\x0f.protofiles.KVP\x12,\n\x13\x63\x61llbackXpathRegexp\x18\x0f \x03(\x0b\x32\x0f.protofiles.KVP\x12\x13\n\x0bmaxIdleTime\x18\x10 \x01(\x03\x12\x1a\n\x12\x66ollowOtherDomains\x18\x11 \x01(\x08\x12\x13\n\x0bkeepDomains\x18\x12 \x03(\t\x12\x13\n\x0b\x64ropDomains\x18\x13 \x03(\t\x12\x1a\n\x12\x64omainDropPriority\x18\x14 \x01(\x08\x12\x1a\n\x12unsafeNormalizeURL\x18\x15 \x01(\x08\x12\r\n\x05login\x18\x16 \x01(\x08\x12\x1a\n\x12loginUsingSelenium\x18\x17 \x01(\x08\x12\x10\n\x08loginUrl\x18\x18 \x01(\t\x12%\n\x0cloginPayload\x18\x19 \x03(\x0b\x32\x0f.protofiles.KVP\x12\x18\n\x10loginParseFields\x18\x1a \x01(\x08\x12(\n\x0floginParseXpath\x18\x1b \x03(\x0b\x32\x0f.protofiles.KVP\x12*\n\x11loginSuccessCheck\x18\x1c \x01(\x0b\x32\x0f.protofiles.KVP\x12\x1f\n\x17\x63heckLoginAfterEachPage\x18\x1d \x01(\x08\x12\x0f\n\x07loginJS\x18\x1e \x01(\t\x12\x0e\n\x06\x63hrome\x18\x1f \x01(\x08\x12\x14\n\x0c\x63hromeBinary\x18  \x01(\t\x12\x13\n\x0b\x64omLoadTime\x18! \x01(\x05\x12\x14\n\x0cnetworkIface\x18\" \x01(\t\x12\x1a\n\x12\x63\x61ncelOnDisconnect\x18# \x01(\x08\x12\x14\n\x0c\x63heckContent\x18$ \x01(\x08\x12\x10\n\x08prefetch\x18% \x01(\x08\x12 \n\x18\x63\x61llbackAnchorTextRegexp\x18\' \x01(\t\x12\x17\n\x0f\x63\x61llbackSeedUrl\x18( \x01(\x08\"\x97\x01\n\x0cSubscription\x12\x0f\n\x07subcode\x18\x01 \x01(\t\x12\x12\n\ndomainname\x18\x02 \x01(\t\x12$\n\x07subtype\x18\x03 \x01(\x0e\x32\x13.protofiles.SubType\x12\x0e\n\x06seqnum\x18\x04 \x01(\x05\x12,\n\x08\x64\x61tetime\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"\x9c\x01\n\x0bPageRequest\x12%\n\x03sub\x18\x01 \x01(\x0b\x32\x18.protofiles.Subscription\x12(\n\x07reqtype\x18\x02 \x01(\x0e\x32\x17.protofiles.PageReqType\x12\x0b\n\x03url\x18\x03 \x01(\t\x12\n\n\x02js\x18\x04 \x01(\t\x12\x12\n\nnoCallback\x18\x05 \x01(\x08\x12\x0f\n\x07metaStr\x18\x06 \x01(\t\"\xbe\x01\n\x08PageHTML\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\r\n\x05\x65rror\x18\x02 \x01(\t\x12%\n\x03sub\x18\x03 \x01(\x0b\x32\x18.protofiles.Subscription\x12\x0b\n\x03url\x18\x04 \x01(\t\x12\x16\n\x0ehttpstatuscode\x18\x05 \x01(\x05\x12\x0f\n\x07\x63ontent\x18\x06 \x01(\x0c\x12\x0f\n\x07metaStr\x18\x07 \x01(\t\x12\x10\n\x08urlDepth\x18\x08 \x01(\x05\x12\x12\n\nanchorText\x18\t \x01(\t\"9\n\x07UrlList\x12\x0b\n\x03url\x18\x01 \x03(\t\x12\x0f\n\x07metaStr\x18\x02 \x01(\t\x12\x10\n\x08urlDepth\x18\x03 \x01(\x05*#\n\x07SubType\x12\n\n\x06SEQNUM\x10\x00\x12\x0c\n\x08\x44\x41TETIME\x10\x01*<\n\x0bPageReqType\x12\x07\n\x03GET\x10\x00\x12\x08\n\x04HEAD\x10\x01\x12\r\n\tBUILTINJS\x10\x02\x12\x0b\n\x07JSCRIPT\x10\x03\x32\xd3\x02\n\x0bIdeaCrawler\x12\x45\n\x12\x41\x64\x64\x44omainAndListen\x12\x15.protofiles.DomainOpt\x1a\x14.protofiles.PageHTML\"\x00\x30\x01\x12;\n\x08\x41\x64\x64Pages\x12\x17.protofiles.PageRequest\x1a\x12.protofiles.Status\"\x00(\x01\x12;\n\tCancelJob\x12\x18.protofiles.Subscription\x1a\x12.protofiles.Status\"\x00\x12\x44\n\x0fGetAnalyzedURLs\x12\x18.protofiles.Subscription\x1a\x13.protofiles.UrlList\"\x00\x30\x01\x12=\n\x0bGetWorkerID\x12\x16.google.protobuf.Empty\x1a\x14.protofiles.WorkerID\"\x00\x62\x06proto3')
+  serialized_pb=_b('\n\x11ideacrawler.proto\x12\nprotofiles\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1bgoogle/protobuf/empty.proto\"\x16\n\x08WorkerID\x12\n\n\x02ID\x18\x01 \x01(\t\"(\n\x06Status\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\r\n\x05\x65rror\x18\x02 \x01(\t\"!\n\x03KVP\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\xb5\x07\n\tDomainOpt\x12\x0f\n\x07seedUrl\x18\x01 \x01(\t\x12\x10\n\x08minDelay\x18\x02 \x01(\x05\x12\x10\n\x08maxDelay\x18\x03 \x01(\x05\x12\x10\n\x08noFollow\x18\x04 \x01(\x08\x12\x19\n\x11\x63\x61llbackUrlRegexp\x18\x05 \x01(\t\x12\x17\n\x0f\x66ollowUrlRegexp\x18\x06 \x01(\t\x12\x1d\n\x15maxConcurrentRequests\x18\x07 \x01(\x05\x12\x11\n\tuseragent\x18\x08 \x01(\t\x12\x10\n\x08impolite\x18\t \x01(\x08\x12\r\n\x05\x64\x65pth\x18\n \x01(\x05\x12\x16\n\x0eThreadsPerSite\x18\x0b \x01(\x03\x12+\n\x12\x63\x61llbackXpathMatch\x18\x0e \x03(\x0b\x32\x0f.protofiles.KVP\x12,\n\x13\x63\x61llbackXpathRegexp\x18\x0f \x03(\x0b\x32\x0f.protofiles.KVP\x12\x13\n\x0bmaxIdleTime\x18\x10 \x01(\x03\x12\x1a\n\x12\x66ollowOtherDomains\x18\x11 \x01(\x08\x12\x13\n\x0bkeepDomains\x18\x12 \x03(\t\x12\x13\n\x0b\x64ropDomains\x18\x13 \x03(\t\x12\x1a\n\x12\x64omainDropPriority\x18\x14 \x01(\x08\x12\x1a\n\x12unsafeNormalizeURL\x18\x15 \x01(\x08\x12\r\n\x05login\x18\x16 \x01(\x08\x12\x1a\n\x12loginUsingSelenium\x18\x17 \x01(\x08\x12\x10\n\x08loginUrl\x18\x18 \x01(\t\x12%\n\x0cloginPayload\x18\x19 \x03(\x0b\x32\x0f.protofiles.KVP\x12\x18\n\x10loginParseFields\x18\x1a \x01(\x08\x12(\n\x0floginParseXpath\x18\x1b \x03(\x0b\x32\x0f.protofiles.KVP\x12*\n\x11loginSuccessCheck\x18\x1c \x01(\x0b\x32\x0f.protofiles.KVP\x12\x1f\n\x17\x63heckLoginAfterEachPage\x18\x1d \x01(\x08\x12\x0f\n\x07loginJS\x18\x1e \x01(\t\x12\x0e\n\x06\x63hrome\x18\x1f \x01(\x08\x12\x14\n\x0c\x63hromeBinary\x18  \x01(\t\x12\x13\n\x0b\x64omLoadTime\x18! \x01(\x05\x12\x14\n\x0cnetworkIface\x18\" \x01(\t\x12\x1a\n\x12\x63\x61ncelOnDisconnect\x18# \x01(\x08\x12\x14\n\x0c\x63heckContent\x18$ \x01(\x08\x12\x10\n\x08prefetch\x18% \x01(\x08\x12 \n\x18\x63\x61llbackAnchorTextRegexp\x18\' \x01(\t\x12\x17\n\x0f\x63\x61llbackSeedUrl\x18( \x01(\x08\"\x97\x01\n\x0cSubscription\x12\x0f\n\x07subcode\x18\x01 \x01(\t\x12\x12\n\ndomainname\x18\x02 \x01(\t\x12$\n\x07subtype\x18\x03 \x01(\x0e\x32\x13.protofiles.SubType\x12\x0e\n\x06seqnum\x18\x04 \x01(\x05\x12,\n\x08\x64\x61tetime\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"\x9c\x01\n\x0bPageRequest\x12%\n\x03sub\x18\x01 \x01(\x0b\x32\x18.protofiles.Subscription\x12(\n\x07reqtype\x18\x02 \x01(\x0e\x32\x17.protofiles.PageReqType\x12\x0b\n\x03url\x18\x03 \x01(\t\x12\n\n\x02js\x18\x04 \x01(\t\x12\x12\n\nnoCallback\x18\x05 \x01(\x08\x12\x0f\n\x07metaStr\x18\x06 \x01(\t\"\xbe\x01\n\x08PageHTML\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\r\n\x05\x65rror\x18\x02 \x01(\t\x12%\n\x03sub\x18\x03 \x01(\x0b\x32\x18.protofiles.Subscription\x12\x0b\n\x03url\x18\x04 \x01(\t\x12\x16\n\x0ehttpstatuscode\x18\x05 \x01(\x05\x12\x0f\n\x07\x63ontent\x18\x06 \x01(\x0c\x12\x0f\n\x07metaStr\x18\x07 \x01(\t\x12\x10\n\x08urlDepth\x18\x08 \x01(\x05\x12\x12\n\nanchorText\x18\t \x01(\t\"9\n\x07UrlList\x12\x0b\n\x03url\x18\x01 \x03(\t\x12\x0f\n\x07metaStr\x18\x02 \x01(\t\x12\x10\n\x08urlDepth\x18\x03 \x01(\x05*#\n\x07SubType\x12\n\n\x06SEQNUM\x10\x00\x12\x0c\n\x08\x44\x41TETIME\x10\x01*<\n\x0bPageReqType\x12\x07\n\x03GET\x10\x00\x12\x08\n\x04HEAD\x10\x01\x12\r\n\tBUILTINJS\x10\x02\x12\x0b\n\x07JSCRIPT\x10\x03\x32\xd3\x02\n\x0bIdeaCrawler\x12\x45\n\x12\x41\x64\x64\x44omainAndListen\x12\x15.protofiles.DomainOpt\x1a\x14.protofiles.PageHTML\"\x00\x30\x01\x12;\n\x08\x41\x64\x64Pages\x12\x17.protofiles.PageRequest\x1a\x12.protofiles.Status\"\x00(\x01\x12;\n\tCancelJob\x12\x18.protofiles.Subscription\x1a\x12.protofiles.Status\"\x00\x12\x44\n\x0fGetAnalyzedURLs\x12\x18.protofiles.Subscription\x1a\x13.protofiles.UrlList\"\x00\x30\x01\x12=\n\x0bGetWorkerID\x12\x16.google.protobuf.Empty\x1a\x14.protofiles.WorkerID\"\x00\x62\x06proto3')
   ,
   dependencies=[google_dot_protobuf_dot_timestamp__pb2.DESCRIPTOR,google_dot_protobuf_dot_empty__pb2.DESCRIPTOR,])
 
@@ -43,8 +43,8 @@ _SUBTYPE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=1689,
-  serialized_end=1724,
+  serialized_start=1713,
+  serialized_end=1748,
 )
 _sym_db.RegisterEnumDescriptor(_SUBTYPE)
 
@@ -74,8 +74,8 @@ _PAGEREQTYPE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=1726,
-  serialized_end=1786,
+  serialized_start=1750,
+  serialized_end=1810,
 )
 _sym_db.RegisterEnumDescriptor(_PAGEREQTYPE)
 
@@ -274,182 +274,189 @@ _DOMAINOPT = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='callbackXpathMatch', full_name='protofiles.DomainOpt.callbackXpathMatch', index=10,
+      name='ThreadsPerSite', full_name='protofiles.DomainOpt.ThreadsPerSite', index=10,
+      number=11, type=3, cpp_type=2, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='callbackXpathMatch', full_name='protofiles.DomainOpt.callbackXpathMatch', index=11,
       number=14, type=11, cpp_type=10, label=3,
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='callbackXpathRegexp', full_name='protofiles.DomainOpt.callbackXpathRegexp', index=11,
+      name='callbackXpathRegexp', full_name='protofiles.DomainOpt.callbackXpathRegexp', index=12,
       number=15, type=11, cpp_type=10, label=3,
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='maxIdleTime', full_name='protofiles.DomainOpt.maxIdleTime', index=12,
+      name='maxIdleTime', full_name='protofiles.DomainOpt.maxIdleTime', index=13,
       number=16, type=3, cpp_type=2, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='followOtherDomains', full_name='protofiles.DomainOpt.followOtherDomains', index=13,
+      name='followOtherDomains', full_name='protofiles.DomainOpt.followOtherDomains', index=14,
       number=17, type=8, cpp_type=7, label=1,
       has_default_value=False, default_value=False,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='keepDomains', full_name='protofiles.DomainOpt.keepDomains', index=14,
+      name='keepDomains', full_name='protofiles.DomainOpt.keepDomains', index=15,
       number=18, type=9, cpp_type=9, label=3,
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='dropDomains', full_name='protofiles.DomainOpt.dropDomains', index=15,
+      name='dropDomains', full_name='protofiles.DomainOpt.dropDomains', index=16,
       number=19, type=9, cpp_type=9, label=3,
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='domainDropPriority', full_name='protofiles.DomainOpt.domainDropPriority', index=16,
+      name='domainDropPriority', full_name='protofiles.DomainOpt.domainDropPriority', index=17,
       number=20, type=8, cpp_type=7, label=1,
       has_default_value=False, default_value=False,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='unsafeNormalizeURL', full_name='protofiles.DomainOpt.unsafeNormalizeURL', index=17,
+      name='unsafeNormalizeURL', full_name='protofiles.DomainOpt.unsafeNormalizeURL', index=18,
       number=21, type=8, cpp_type=7, label=1,
       has_default_value=False, default_value=False,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='login', full_name='protofiles.DomainOpt.login', index=18,
+      name='login', full_name='protofiles.DomainOpt.login', index=19,
       number=22, type=8, cpp_type=7, label=1,
       has_default_value=False, default_value=False,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='loginUsingSelenium', full_name='protofiles.DomainOpt.loginUsingSelenium', index=19,
+      name='loginUsingSelenium', full_name='protofiles.DomainOpt.loginUsingSelenium', index=20,
       number=23, type=8, cpp_type=7, label=1,
       has_default_value=False, default_value=False,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='loginUrl', full_name='protofiles.DomainOpt.loginUrl', index=20,
+      name='loginUrl', full_name='protofiles.DomainOpt.loginUrl', index=21,
       number=24, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='loginPayload', full_name='protofiles.DomainOpt.loginPayload', index=21,
+      name='loginPayload', full_name='protofiles.DomainOpt.loginPayload', index=22,
       number=25, type=11, cpp_type=10, label=3,
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='loginParseFields', full_name='protofiles.DomainOpt.loginParseFields', index=22,
+      name='loginParseFields', full_name='protofiles.DomainOpt.loginParseFields', index=23,
       number=26, type=8, cpp_type=7, label=1,
       has_default_value=False, default_value=False,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='loginParseXpath', full_name='protofiles.DomainOpt.loginParseXpath', index=23,
+      name='loginParseXpath', full_name='protofiles.DomainOpt.loginParseXpath', index=24,
       number=27, type=11, cpp_type=10, label=3,
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='loginSuccessCheck', full_name='protofiles.DomainOpt.loginSuccessCheck', index=24,
+      name='loginSuccessCheck', full_name='protofiles.DomainOpt.loginSuccessCheck', index=25,
       number=28, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='checkLoginAfterEachPage', full_name='protofiles.DomainOpt.checkLoginAfterEachPage', index=25,
+      name='checkLoginAfterEachPage', full_name='protofiles.DomainOpt.checkLoginAfterEachPage', index=26,
       number=29, type=8, cpp_type=7, label=1,
       has_default_value=False, default_value=False,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='loginJS', full_name='protofiles.DomainOpt.loginJS', index=26,
+      name='loginJS', full_name='protofiles.DomainOpt.loginJS', index=27,
       number=30, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='chrome', full_name='protofiles.DomainOpt.chrome', index=27,
+      name='chrome', full_name='protofiles.DomainOpt.chrome', index=28,
       number=31, type=8, cpp_type=7, label=1,
       has_default_value=False, default_value=False,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='chromeBinary', full_name='protofiles.DomainOpt.chromeBinary', index=28,
+      name='chromeBinary', full_name='protofiles.DomainOpt.chromeBinary', index=29,
       number=32, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='domLoadTime', full_name='protofiles.DomainOpt.domLoadTime', index=29,
+      name='domLoadTime', full_name='protofiles.DomainOpt.domLoadTime', index=30,
       number=33, type=5, cpp_type=1, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='networkIface', full_name='protofiles.DomainOpt.networkIface', index=30,
+      name='networkIface', full_name='protofiles.DomainOpt.networkIface', index=31,
       number=34, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='cancelOnDisconnect', full_name='protofiles.DomainOpt.cancelOnDisconnect', index=31,
+      name='cancelOnDisconnect', full_name='protofiles.DomainOpt.cancelOnDisconnect', index=32,
       number=35, type=8, cpp_type=7, label=1,
       has_default_value=False, default_value=False,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='checkContent', full_name='protofiles.DomainOpt.checkContent', index=32,
+      name='checkContent', full_name='protofiles.DomainOpt.checkContent', index=33,
       number=36, type=8, cpp_type=7, label=1,
       has_default_value=False, default_value=False,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='prefetch', full_name='protofiles.DomainOpt.prefetch', index=33,
+      name='prefetch', full_name='protofiles.DomainOpt.prefetch', index=34,
       number=37, type=8, cpp_type=7, label=1,
       has_default_value=False, default_value=False,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='callbackAnchorTextRegexp', full_name='protofiles.DomainOpt.callbackAnchorTextRegexp', index=34,
+      name='callbackAnchorTextRegexp', full_name='protofiles.DomainOpt.callbackAnchorTextRegexp', index=35,
       number=39, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='callbackSeedUrl', full_name='protofiles.DomainOpt.callbackSeedUrl', index=35,
+      name='callbackSeedUrl', full_name='protofiles.DomainOpt.callbackSeedUrl', index=36,
       number=40, type=8, cpp_type=7, label=1,
       has_default_value=False, default_value=False,
       message_type=None, enum_type=None, containing_type=None,
@@ -468,7 +475,7 @@ _DOMAINOPT = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=197,
-  serialized_end=1122,
+  serialized_end=1146,
 )
 
 
@@ -526,8 +533,8 @@ _SUBSCRIPTION = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1125,
-  serialized_end=1276,
+  serialized_start=1149,
+  serialized_end=1300,
 )
 
 
@@ -592,8 +599,8 @@ _PAGEREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1279,
-  serialized_end=1435,
+  serialized_start=1303,
+  serialized_end=1459,
 )
 
 
@@ -679,8 +686,8 @@ _PAGEHTML = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1438,
-  serialized_end=1628,
+  serialized_start=1462,
+  serialized_end=1652,
 )
 
 
@@ -724,8 +731,8 @@ _URLLIST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1630,
-  serialized_end=1687,
+  serialized_start=1654,
+  serialized_end=1711,
 )
 
 _DOMAINOPT.fields_by_name['callbackXpathMatch'].message_type = _KVP
@@ -814,8 +821,8 @@ _IDEACRAWLER = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   serialized_options=None,
-  serialized_start=1789,
-  serialized_end=2128,
+  serialized_start=1813,
+  serialized_end=2152,
   methods=[
   _descriptor.MethodDescriptor(
     name='AddDomainAndListen',

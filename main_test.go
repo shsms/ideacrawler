@@ -27,7 +27,7 @@ func startTestServer() (string, error) {
 	}
 	serverPort = strconv.Itoa(port)
 	cliParams.ClientListenAddress = "127.0.0.1:" + serverPort
-	go startCrawlerWorker(modeStandalone)
+	go startCrawlerWorker(modeStandalone, newServer(modeStandalone, nil))
 	serverRunning = true
 	time.Sleep(1 * time.Second)
 	return serverPort, nil
@@ -39,8 +39,8 @@ type TestData struct {
 	chrome            bool
 	maxIdleTime       int64
 	depth             int32
-	followUrlRegexp   string
-	callbackUrlRegexp string
+	followURLRegexp   string
+	callbackURLRegexp string
 	respStatusCode    int32
 	respBodyRegexp    string
 	respBodyMinLength int
@@ -157,8 +157,8 @@ func TestMultiSiteFilter(t *testing.T) {
 			name:              "depth1Raw",
 			seedURL:           "",
 			chrome:            false,
-			followUrlRegexp:   "com$|author",
-			callbackUrlRegexp: "hub|author",
+			followURLRegexp:   "com$|author",
+			callbackURLRegexp: "hub|author",
 			respStatusCode:    200,
 			respBodyMinLength: 100,
 			depth:             1,
@@ -182,8 +182,8 @@ func TestMultiSiteFilter(t *testing.T) {
 				gc.MinDelay(1),
 				gc.Impolite(),
 				gc.MaxIdleTime(dp.maxIdleTime),
-				gc.CallbackURLRegexp(dp.callbackUrlRegexp),
-				gc.FollowURLRegexp(dp.followUrlRegexp),
+				gc.CallbackURLRegexp(dp.callbackURLRegexp),
+				gc.FollowURLRegexp(dp.followURLRegexp),
 				gc.PageChan(gc.NewPageChan()),
 			)
 

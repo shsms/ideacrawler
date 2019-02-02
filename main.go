@@ -22,9 +22,11 @@ import (
 	"errors"
 	"log"
 	"math/rand"
+	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"path"
+	"runtime"
 	"strings"
 	"time"
 
@@ -82,13 +84,19 @@ func main() {
 		}
 		log.SetOutput(logFP)
 	}
+	go func() {
+		runtime.SetBlockProfileRate(1)
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
 	mode, err := parseCrawlerMode(cliParams.Mode)
 	if err == errInvalidMode {
 		log.Fatal(err)
 	}
 	if mode == modeServer {
-		startCrawlerServer()
+		wm := newWorkerManager()
+		wm.start()
+		startCrawlerWorker(modeStandalone, newServer(mode, wm))
 	} else {
-		startCrawlerWorker(mode)
+		startCrawlerWorker(mode, newServer(mode, nil))
 	}
 }

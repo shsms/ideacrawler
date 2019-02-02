@@ -31,3 +31,7 @@ test:
 vendor:
 	if [ -d vendor ]; then rm -rf vendor; fi
 	GO111MODULE=on go mod vendor -v
+
+local: clean
+	mkdir -p build
+	GO111MODULE=on go build -o build/ideacrawler

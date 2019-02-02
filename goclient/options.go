@@ -32,6 +32,12 @@ func MaxIdleTime(vv int64) Option {
 	}
 }
 
+func ThreadsPerSite(vv int64) Option {
+	return func(args *JobSpec) {
+		args.dopt.ThreadsPerSite = vv
+	}
+}
+
 func NoFollow() Option {
 	return func(args *JobSpec) {
 		args.dopt.NoFollow = true

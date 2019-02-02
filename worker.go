@@ -38,9 +38,12 @@ type ideaCrawlerWorker struct {
 	workerID   string
 	mode       int
 	jobs       map[string]*job
-	newJobChan chan<- newJob
-	newSubChan chan<- newSub
+	newJobChan chan newJob
+	newSubChan chan newSub
 	ccl        *chromeclient.ChromeClient
+
+	wm  *workerManager
+	cwm *chromeWorkerManager
 }
 
 type newJobStatus struct {
@@ -386,16 +389,19 @@ func newStandaloneListener() net.Listener {
 	return lis
 }
 
-func newServer(newJobChan chan<- newJob, newSubChan chan<- newSub) *ideaCrawlerWorker {
+func newServer(mode int, wm *workerManager) *ideaCrawlerWorker {
 	s := new(ideaCrawlerWorker)
 	s.jobs = make(map[string]*job)
-	s.newJobChan = newJobChan
-	s.newSubChan = newSubChan
+	s.newJobChan = make(chan newJob)
+	s.newSubChan = make(chan newSub)
 	s.workerID = uuid.New().String()
+	s.mode = mode
+	s.wm = wm
+	s.cwm = (*chromeWorkerManager)(wm)
 	return s
 }
 
-func startCrawlerWorker(mode int) {
+func startCrawlerWorker(mode int, srv *ideaCrawlerWorker) {
 	var lis net.Listener
 	if mode == modeStandalone {
 		lis = newStandaloneListener()
@@ -406,10 +412,7 @@ func startCrawlerWorker(mode int) {
 	var opts []grpc.ServerOption
 
 	grpcServer := grpc.NewServer(opts...)
-	newJobChan := make(chan newJob)
-	newSubChan := make(chan newSub)
-	newsrv := newServer(newJobChan, newSubChan)
-	pb.RegisterIdeaCrawlerServer(grpcServer, newsrv)
-	go newsrv.jobManager(newJobChan, newSubChan)
+	pb.RegisterIdeaCrawlerServer(grpcServer, srv)
+	go srv.jobManager(srv.newJobChan, srv.newSubChan)
 	grpcServer.Serve(lis)
 }

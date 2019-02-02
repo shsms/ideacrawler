@@ -26,12 +26,14 @@ import (
 	"net"
 	"time"
 
+	"github.com/golang/protobuf/ptypes/empty"
 	pb "github.com/shsms/ideacrawler/protofiles"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
 
 type PageHTML = pb.PageHTML
+type Subscription = pb.Subscription
 
 type Worker struct {
 	Conn   *grpc.ClientConn
@@ -94,7 +96,7 @@ func (w *Worker) Close() {
 }
 
 func (w *Worker) GetWorkerID() (string, error) {
-	wid, err := w.Client.GetWorkerID(context.Background(), nil)
+	wid, err := w.Client.GetWorkerID(context.Background(), &empty.Empty{})
 	if err != nil {
 		return "", err
 	}
@@ -270,7 +272,6 @@ func (cj *CrawlJob) run() {
 			for ph := range phChan {
 				cj.spec.implPageChan <- ph
 			}
-			close(cj.spec.implPageChan)
 		} else {
 			for ph := range phChan {
 				cj.spec.callback(ph, cj)

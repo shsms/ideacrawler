@@ -69,6 +69,8 @@ message DomainOpt {
   //TODO
   int32  depth = 10;
 
+  int64 ThreadsPerSite = 11;
+  
   // Callback check order -
   //   (1) - callbackUrlRegexp
   //   (2) - callbackXpathMatch

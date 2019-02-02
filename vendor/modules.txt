@@ -81,6 +81,8 @@ github.com/mafredri/cdp/protocol/internal
 github.com/peterbourgon/diskv
 # github.com/phayes/freeport v0.0.0-20171002181615-b8543db493a5
 github.com/phayes/freeport
+# github.com/shsms/fetchbot v1.1.3-0.20190202140914-775bee3cb83a
+github.com/shsms/fetchbot
 # github.com/shsms/sflag v0.0.0-20160229091130-0ec38aa16580
 github.com/shsms/sflag
 # github.com/temoto/robotstxt-go v0.0.0-20180810133444-97ee4a9ee6ea

@@ -38,8 +38,10 @@ github.com/peterbourgon/diskv v2.0.1+incompatible h1:UBdAOUP5p4RWqPBg048CAvpKN+v
 github.com/peterbourgon/diskv v2.0.1+incompatible/go.mod h1:uqqh8zWWbv1HBMNONnaR/tNboyR3/BZd58JJSHlUSCU=
 github.com/phayes/freeport v0.0.0-20171002181615-b8543db493a5 h1:rZQtoozkfsiNs36c7Tdv/gyGNzD1X1XWKO8rptVNZuM=
 github.com/phayes/freeport v0.0.0-20171002181615-b8543db493a5/go.mod h1:iIss55rKnNBTvrwdmkUpLnDpZoAHvWaiq5+iMmen4AE=
-github.com/shsms-i2i/sflag v0.0.0-20160229091130-0ec38aa16580 h1:DrK7wF37tBm4wtWPhhIayS5mKc/9Ob6dXK+Rs8UE5Pk=
-github.com/shsms-i2i/sflag v0.0.0-20160229091130-0ec38aa16580/go.mod h1:Pbo027wS1P5l1qtsiCsQoZ+QuFXIIq3QYtgvSdKJPNs=
+github.com/shsms/fetchbot v1.1.2 h1:CleKlbquzbsO2t/LaHexSa0iK1R4giPE4byUpjM2H2c=
+github.com/shsms/fetchbot v1.1.2/go.mod h1:vXxMAM36Dvhvo+60GAVFx35FaXAZN+6kx+gi81i+gZE=
+github.com/shsms/fetchbot v1.1.3-0.20190202140914-775bee3cb83a h1:LW0tDnwwRyb62Sc6ah6cycrj3/oBe4qXJGAkGD1AbCA=
+github.com/shsms/fetchbot v1.1.3-0.20190202140914-775bee3cb83a/go.mod h1:vXxMAM36Dvhvo+60GAVFx35FaXAZN+6kx+gi81i+gZE=
 github.com/shsms/sflag v0.0.0-20160229091130-0ec38aa16580 h1:7SvBhRRxX6ghEIadNLHcb1E/B21CabGyzNmTpnV4/2k=
 github.com/shsms/sflag v0.0.0-20160229091130-0ec38aa16580/go.mod h1:bBR+Mo9uC4Exjvzd4vPt6y7aKhDUutgXgJHcaFgPwz8=
 github.com/temoto/robotstxt-go v0.0.0-20180810133444-97ee4a9ee6ea h1:uTsERZ8h4VnqCoMip8dLd+uvk1R1xR2AviWn+pfoUa0=

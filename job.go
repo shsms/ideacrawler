@@ -17,13 +17,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/PuerkitoBio/fetchbot"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/PuerkitoBio/purell"
 	"github.com/antchfx/xpath"
 	htmlquery "github.com/antchfx/xquery/html"
 	"github.com/gregjones/httpcache"
 	"github.com/gregjones/httpcache/diskcache"
+	"github.com/shsms/fetchbot"
 	"github.com/shsms/ideacrawler/chromeclient"
 	pb "github.com/shsms/ideacrawler/protofiles"
 	sc "github.com/shsms/ideacrawler/statuscodes"
@@ -51,6 +51,7 @@ type job struct {
 
 func (j *job) sendPageHTML(ctx *fetchbot.Context, phtml pb.PageHTML) {
 	if j.subscriber.connected == false {
+		j.log.Println("Client not connected")
 		return
 	}
 	select {
@@ -604,7 +605,11 @@ func (s *ideaCrawlerWorker) RunJob(subID string, j *job) {
 
 	var networkTransport = j.makeNetworkTransport()
 
-	if j.opts.Chrome == false && j.opts.Login == false {
+	if s.mode == modeServer && j.opts.Chrome == false {
+		f.HttpClient = &Doer{s.wm, j, semaphore.NewWeighted(int64(j.opts.MaxConcurrentRequests)), s}
+	} else if s.mode == modeServer && j.opts.Chrome == true {
+		f.HttpClient = &Doer{s.cwm, j, semaphore.NewWeighted(int64(j.opts.MaxConcurrentRequests)), s}
+	} else if j.opts.Chrome == false && j.opts.Login == false {
 		f.HttpClient, err = s.makeHTTPClientRawDirect(j, networkTransport)
 		if err != nil {
 			return
@@ -638,7 +643,7 @@ func (s *ideaCrawlerWorker) RunJob(subID string, j *job) {
 	}
 	f.AutoClose = true
 	f.UserAgent = j.opts.Useragent
-
+	f.ThreadsPerSite = j.opts.ThreadsPerSite
 	//TODO: hipri: create goroutine to listen for new PageRequest objects
 
 	q := f.Start()
