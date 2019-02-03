@@ -1,8 +1,6 @@
 package goclient
 
 import (
-	"log"
-
 	pb "github.com/shsms/ideacrawler/protofiles"
 )
 
@@ -141,30 +139,20 @@ func CleanUpFunc(vv func()) Option {
 	}
 }
 
-func CallbackFunc(vv func(*PageHTML, *CrawlJob)) Option {
+func PageChan(vv chan *pb.PageHTML) Option {
 	return func(args *JobSpec) {
-		if args.usePageChan == true {
-			log.Fatal("Can't use PageChan and CallbackFunc at the same time.")
-		}
-		args.callback = vv
+		args.implPageChan = vv
 	}
 }
 
-func PageChan(vv chan *pb.PageHTML) Option {
+func AnalyzedURL() Option {
 	return func(args *JobSpec) {
-		if args.callback != nil {
-			log.Fatal("Can't use PageChan and CallbackFunc at the same time.")
-		}
-		args.usePageChan = true
-		args.implPageChan = vv
+		args.useAnalyzedURLChan = true
 	}
 }
 
 func AnalyzedURLChan(vv chan *pb.UrlList) Option {
 	return func(args *JobSpec) {
-		if args.callback != nil {
-			log.Fatal("Can't use PageChan and CallbackFunc at the same time.")
-		}
 		args.useAnalyzedURLChan = true
 		args.implAnalyzedURLChan = vv
 	}

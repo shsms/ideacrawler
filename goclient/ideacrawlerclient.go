@@ -43,8 +43,6 @@ type Worker struct {
 type JobSpec struct {
 	dopt *pb.DomainOpt
 
-	callback            func(*PageHTML, *CrawlJob)
-	usePageChan         bool
 	implPageChan        chan *pb.PageHTML
 	useAnalyzedURLChan  bool
 	implAnalyzedURLChan chan *pb.UrlList
@@ -130,6 +128,14 @@ func NewCrawlJob(w *Worker, spec *JobSpec) (*CrawlJob, error) {
 	if err != nil {
 		fmt.Println(err)
 		return nil, err
+	}
+
+	if spec.implPageChan == nil {
+		spec.implPageChan = NewPageChan()
+	}
+
+	if spec.useAnalyzedURLChan == true && spec.implAnalyzedURLChan == nil {
+		spec.implAnalyzedURLChan = NewAnalyzedURLChan()
 	}
 
 	var cj = &CrawlJob{
@@ -256,26 +262,14 @@ func (cj *CrawlJob) run() {
 		}
 	}()
 
-	if cj.spec.usePageChan == true && cj.spec.callback != nil {
-		log.Fatal("Callback channel and function both can't be used at the same time")
-	} else if cj.spec.usePageChan == false && cj.spec.callback == nil {
-		log.Fatal("Please set pageChan to get callbacks on,  or provide a callback function")
-	}
-
 	cj.initAnalyzedURL()
 	phChan := make(chan *pb.PageHTML, 1000)
 	defer close(phChan)
 
 	go func() {
 		time.Sleep(3 * time.Second) // This is to make sure callbacks don't start until Start() function exits.  Start sleep for 2 seconds.
-		if cj.spec.usePageChan {
-			for ph := range phChan {
-				cj.spec.implPageChan <- ph
-			}
-		} else {
-			for ph := range phChan {
-				cj.spec.callback(ph, cj)
-			}
+		for ph := range phChan {
+			cj.spec.implPageChan <- ph
 		}
 	}()
 
