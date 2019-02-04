@@ -190,10 +190,15 @@ func (wm *workerManager) createNewClient(conn net.Conn) {
 		log.Println("failed to create gc.Worker:", err)
 		return
 	}
-	j := newWorkerJob(w, false, wm.pageChan)
+	j := newWorkerJob(w, false, "", wm.pageChan)
 	if j == nil {
 		return
 	}
+	cj := newWorkerJob(w, true, "/usr/bin/chromium", wm.pageChan)
+	if j == nil {
+		return
+	}
+
 	id, err := w.GetWorkerID()
 	if err != nil {
 		log.Println("failed to get workerID:", err)
@@ -201,23 +206,22 @@ func (wm *workerManager) createNewClient(conn net.Conn) {
 	}
 	// TODO: grpc getWorkerID
 	wm.addWorker(&worker{
-		id:  id,
-		w:   w,
-		job: j,
+		id:   id,
+		w:    w,
+		job:  j,
+		cJob: cj,
 	})
 }
 
-func newWorkerJob(w *gc.Worker, chrome bool, pageChan chan *gc.PageHTML) *gc.CrawlJob {
+func newWorkerJob(w *gc.Worker, chrome bool, chromeBinary string, pageChan chan *gc.PageHTML) *gc.CrawlJob {
 	opts := []gc.Option{
 		gc.NoFollow(),
 		gc.Impolite(),
 		gc.PageChan(pageChan),
 		gc.MaxIdleTime(365 * 24 * 3600),
+		gc.Chrome(chrome, chromeBinary),
 	}
 
-	if chrome == true {
-		opts = append(opts, gc.Chrome(true, "/usr/bin/chromium"))
-	}
 	z, err := gc.NewCrawlJob(w, gc.NewJobSpec(opts...))
 	if err != nil {
 		log.Println("failed to create CrawlJob:", err)

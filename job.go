@@ -864,7 +864,7 @@ func (j *job) enqueueLinks(ctx *fetchbot.Context, doc *goquery.Document, urlDept
 			}
 		}
 	})
-	j.log.Println("Status of analyzed url: ", j.subscriber.analyzedURLConnected)
+
 	if j.subscriber.analyzedURLConnected == true {
 		if j.subscriber.connected == false {
 			return
