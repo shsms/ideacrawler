@@ -16,7 +16,7 @@ func main() {
 	spec := gc.NewJobSpec(
 		gc.Depth(2),
 		gc.MaxIdleTime(60),
-		gc.Chrome(true, "/usr/bin/chromium"),
+		//		gc.Chrome(true, "/usr/bin/chromium"),
 		gc.CallbackURLRegexp("author"),
 		gc.FollowURLRegexp("com$|tag"),
 		gc.PageChan(gc.NewPageChan()),

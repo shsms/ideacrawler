@@ -1,6 +1,6 @@
 # IdeaCrawler [![Build Status](https://travis-ci.com/shsms/ideacrawler.svg?branch=master)](https://travis-ci.com/shsms/ideacrawler)
 
-IdeaCrawler is a blazing fast, highly effective, flexible client-server crawling framework written in Go. We built it to perform certain tasks better than existing crawlers do. Based on the tests we conducted, this crawler outperforms Scrapy and other alternatives, many times over.  
+IdeaCrawler is a blazing fast, highly effective, flexible client-server crawling framework written in Go. We built it to perform certain tasks better than existing crawlers do. Based on the tests we conducted, this crawler outperforms Scrapy and other alternatives, many times over.
 
 In addition to the features you would expect from a regular crawling library, it makes it very easy to do things like scaling across machines, crawling through VPNs, using cookies, using Chrome as a crawling backend, etc. It was written to act as a layer on top of a regular crawling library, with a lot of glue code pre-written. 
 
@@ -11,6 +11,7 @@ This framework also allows users to isolate crawling to a dedicated cluster, whi
 ## Features
   * The server is written in Go.  We provide client libraries in Go and Python, but clients can be written in any language that Protobuf supports.
   * A single server can simultaneously run lots of crawl jobs submitted by multiple clients.  And a single client can use multiple servers running on different machines to distribute the crawling load,  so that none of the server IPs get blocked, etc.
+  * Servers can be run in <em>Standalone</em> or <em>Cluster</em> mode.  In cluster mode,  jobs from a single client get distributed to multiple workers automatically.
   * The server can be configured to automatically deep crawl a site through a predefined URL regex crawl path, and send back to client only URLs matching a certain regex (for example, deep crawl product listing pages,  but send back only product pages)
   * Clients can choose whether server should crawl directly or use a headless chrome instance.
   * Customize UserAgent
@@ -28,6 +29,41 @@ This framework also allows users to isolate crawling to a dedicated cluster, whi
   * (Headless) Chrome  (only for chrome mode)
 
 ## Setup instructions
+
+### Server
+  * To download and build the server locally:
+
+	git clone https://github.com/shsms/ideacrawler
+	cd ideacrawler
+	make              ## builds the server and runs a few tests
+	make build        ## only builds the server
+
+  * To start the server in standalone mode,
+
+	build/ideacrawler     ## default is standalone mode.
+	                      ## needs port 2345 for clients to connect
+
+  * To start the server in cluster mode,
+
+    build/ideacrawler -Mode server     ## one cluster server
+	                                   ## needs ports 2345 for clients, and 2346 for workers
+
+    build/ideacrawler -Mode worker -Servers 127.0.0.1:2346   ## and three cluster workers
+    build/ideacrawler -Mode worker -Servers 127.0.0.1:2346
+    build/ideacrawler -Mode worker -Servers 127.0.0.1:2346
+
+### Client
+
+  * To run the example client program, first ensure a server is running, in any mode, then:
+
+    go run examples/basic.go
+
+  * See `main_test.go` for some more ideas on how to use.
+
+  * Visit https://godoc.org/github.com/shsms/ideacrawler/goclient for details on config options.
+
+## ----Old Instructions----
+
 ### Client
   * For the client programs to compile,  you need to install grpc and protobuf packages.
   
@@ -36,7 +72,7 @@ This framework also allows users to isolate crawling to a dedicated cluster, whi
 	go get -u github.com/golang/protobuf/protoc-gen-go
 	go get google.golang.org/grpc
 	
-  For Python, use
+  For Python (no longer maintained, but should still work), use
   
 	pip install grpcio-tools
 
