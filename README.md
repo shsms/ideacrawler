@@ -33,30 +33,30 @@ This framework also allows users to isolate crawling to a dedicated cluster, whi
 ### Server
   * To download and build the server locally:
 
-	git clone https://github.com/shsms/ideacrawler
-	cd ideacrawler
-	make              ## builds the server and runs a few tests
-	make build        ## only builds the server
+        git clone https://github.com/shsms/ideacrawler
+        cd ideacrawler
+        make              ## builds the server and runs a few tests
+        make build        ## only builds the server
 
   * To start the server in standalone mode,
 
-	build/ideacrawler     ## default is standalone mode.
+        build/ideacrawler     ## default is standalone mode.
 	                      ## needs port 2345 for clients to connect
 
   * To start the server in cluster mode,
 
-    build/ideacrawler -Mode server     ## one cluster server
-	                                   ## needs ports 2345 for clients, and 2346 for workers
+        build/ideacrawler -Mode server     ## one cluster server
+                                           ## needs ports 2345 for clients, and 2346 for workers
 
-    build/ideacrawler -Mode worker -Servers 127.0.0.1:2346   ## and three cluster workers
-    build/ideacrawler -Mode worker -Servers 127.0.0.1:2346
-    build/ideacrawler -Mode worker -Servers 127.0.0.1:2346
+        build/ideacrawler -Mode worker -Servers 127.0.0.1:2346   ## and three cluster workers
+        build/ideacrawler -Mode worker -Servers 127.0.0.1:2346
+        build/ideacrawler -Mode worker -Servers 127.0.0.1:2346
 
 ### Client
 
   * To run the example client program, first ensure a server is running, in any mode, then:
 
-    go run examples/basic.go
+        go run examples/basic.go
 
   * See `main_test.go` for some more ideas on how to use.
 
