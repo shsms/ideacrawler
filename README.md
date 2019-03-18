@@ -23,9 +23,8 @@ This framework also allows users to isolate crawling to a dedicated cluster, whi
 
 ## Pre-requesites
   * Linux OS
-  * Go compiler (>= v1.10) (from https://golang.org/dl/)
-  * Dep dependency management tool (>= v0.4.1) (from https://github.com/golang/dep)
-  * Protobuf compilers for Go and Python (only if you want to recompile the proto files)
+  * Go compiler (>= v1.12) (from https://golang.org/dl/)
+  * Protobuf compilers for Go and Python (optional, needed only if you want to recompile the proto files)
   * (Headless) Chrome  (only for chrome mode)
 
 ## Setup instructions
