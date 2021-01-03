@@ -108,6 +108,7 @@ func NewJobSpec(opts ...Option) *JobSpec {
 		DomLoadTime:           5,
 		Useragent:             "Fetchbot",
 		MaxConcurrentRequests: 5,
+		Mimetype: "text/html",
 	}
 	spec := &JobSpec{
 		dopt: dopt,

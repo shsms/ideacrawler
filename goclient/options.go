@@ -164,6 +164,18 @@ func CallbackSeedURL() Option {
 	}
 }
 
+func MimeType(mime string) Option {
+	return func(args *JobSpec) {
+		args.dopt.Mimetype = mime
+	}
+}
+
+func NoMimeType() Option {
+	return func(args *JobSpec) {
+		args.dopt.Mimetype = ""
+	}
+}
+
 func Login(loginUrl string, loginPayload, loginParseXpath KVMap, loginSuccessCheck KVMap) Option {
 	return func(args *JobSpec) {
 		args.dopt.Login = true

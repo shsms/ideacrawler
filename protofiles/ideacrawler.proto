@@ -137,6 +137,9 @@ message DomainOpt {
 
   // If true ships the page at depth 0, else only pattern matched urls are shipped
   bool callbackSeedUrl = 40;
+
+  // mimetype
+  string mimetype = 41;
 }
 
 message JobID {

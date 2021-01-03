@@ -615,8 +615,14 @@ func (s *ideaCrawlerWorker) RunJob(subID string, j *job) {
 
 	mux := fetchbot.NewMux()
 	mux.HandleErrors(fetchbot.HandlerFunc(j.fetchErrorHandler))
-	mux.Response().Method("GET").ContentType("text/html").Handler(fetchbot.HandlerFunc(j.fetchHTTPGetHandler))
-	mux.Response().Method("HEAD").ContentType("text/html").Handler(fetchbot.HandlerFunc(j.fetchHTTPHeadHandler))
+	getHandle := mux.Response().Method("GET")
+	headHandle := mux.Response().Method("HEAD")
+	if j.opts.Mimetype != "" {
+		getHandle = getHandle.ContentType(j.opts.Mimetype)
+		headHandle = headHandle.ContentType(j.opts.Mimetype)
+	}
+	getHandle.Handler(fetchbot.HandlerFunc(j.fetchHTTPGetHandler))
+	headHandle.Handler(fetchbot.HandlerFunc(j.fetchHTTPHeadHandler))
 
 	f := fetchbot.New(mux)
 	j.log.Printf("MaxConcurrentRequests=%v\n", int64(j.opts.MaxConcurrentRequests))

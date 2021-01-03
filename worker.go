@@ -43,6 +43,7 @@ type ideaCrawlerWorker struct {
 
 	wm  *workerManager
 	cwm *chromeWorkerManager
+	pb.UnimplementedIdeaCrawlerServer
 }
 
 type newJobStatus struct {

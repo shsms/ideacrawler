@@ -11,7 +11,7 @@ ifeq ($(GOPATHDIR),)
 	@echo "No gopath"
 	@exit 1
 endif
-	protoc -I $(PWD)/ $(PWD)/protofiles/ideacrawler.proto --go_out=plugins=grpc:$(PWD)/
+	protoc -I $(PWD)/ $(PWD)/protofiles/ideacrawler.proto --go_out=$(PWD)/ --go-grpc_out=$(PWD)/
 
 protopy:
 	python -m grpc_tools.protoc -I $(PWD)/protofiles --python_out=$(PWD)/protofiles --grpc_python_out=$(PWD)/protofiles $(PWD)/protofiles/ideacrawler.proto
